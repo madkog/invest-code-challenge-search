@@ -35,7 +35,6 @@ const {
   results,
   count,
   status,
-  error,
   suggestions,
   suggestionKinds,
   flagshipFunds,
@@ -52,6 +51,8 @@ const toolbar = useTemplateRef<InstanceType<typeof ResultsToolbar>>('toolbar')
 // What is typed in the box. The search only changes when it is submitted or a suggestion is picked.
 const draft = ref(query.value)
 const drawerOpen = ref(false)
+// The ETF or share shown in the drawer, so its details can be loaded again after a failure.
+const openedId = ref<string | null>(null)
 
 const isLoading = computed(() => status.value === SEARCH_STATUS.LOADING)
 const hasError = computed(() => status.value === SEARCH_STATUS.ERROR)
@@ -109,8 +110,13 @@ function runSearch(text: string, kind?: Kind) {
 }
 
 function openInstrument(id: string) {
+  openedId.value = id
   drawerOpen.value = true
   store.loadInstrument(id)
+}
+
+function retryInstrument() {
+  if (openedId.value) store.loadInstrument(openedId.value)
 }
 
 // Picking an ETF or share in the search box searches for it, so the box and the results show the
@@ -142,6 +148,12 @@ function onRemoveChip(key: string) {
   if (type === 'kind') onKind(filters.value.kind.filter((kind) => kind !== value))
   if (type === 'issuer') onIssuer(filters.value.issuer.filter((issuer) => issuer !== value))
   if (type === 'flag') onFlag({ key: value as FlagKey, value: null })
+}
+
+// A failed search may have left the filters empty too, so they are reloaded as well.
+function retrySearch() {
+  store.search()
+  refreshFacets()
 }
 
 function clearFilters() {
@@ -218,9 +230,9 @@ onMounted(() => {
 
         <ErrorMessage
           v-if="hasError"
-          title="Search is unavailable right now."
-          :message="`The API said: “${error}”`"
-          @retry="store.search()"
+          title="We couldn’t load results."
+          message="Please try again in a moment."
+          @retry="retrySearch"
         />
         <ListSkeleton v-else-if="showSkeleton" />
         <EmptyState v-else-if="isEmpty" :title="emptyTitle">
@@ -257,6 +269,7 @@ onMounted(() => {
       :instrument="instrument"
       :state="instrumentStatus"
       @update:visible="onDrawerVisible"
+      @retry="retryInstrument"
     />
   </div>
 </template>

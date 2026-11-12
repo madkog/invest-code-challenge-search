@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import Button from 'primevue/button'
 import Drawer from 'primevue/drawer'
 import Skeleton from 'primevue/skeleton'
 
@@ -13,7 +14,7 @@ defineProps<{
   state: 'idle' | 'loading' | 'success' | 'not-found' | 'error'
 }>()
 
-defineEmits<{ 'update:visible': [visible: boolean] }>()
+defineEmits<{ 'update:visible': [visible: boolean]; retry: [] }>()
 
 function yesNo(value: boolean): string {
   return value ? 'Yes' : 'No'
@@ -31,9 +32,10 @@ function yesNo(value: boolean): string {
     <p v-if="state === 'not-found'" class="message" role="status">
       We couldn’t find that ETF or share.
     </p>
-    <p v-else-if="state === 'error'" class="message" role="alert">
-      Something went wrong loading the details. Try again in a moment.
-    </p>
+    <div v-else-if="state === 'error'" class="error" role="alert">
+      <p class="message">We couldn’t load the details.</p>
+      <span><Button label="Try again" size="small" @click="$emit('retry')" /></span>
+    </div>
     <div v-else-if="!instrument" class="loading" aria-busy="true" aria-label="Loading details">
       <Skeleton height="1.4rem" width="80%" />
       <Skeleton v-for="row in 6" :key="row" height="1rem" />
@@ -90,6 +92,7 @@ function yesNo(value: boolean): string {
   color: var(--p-text-muted-color);
 }
 
+.error,
 .loading,
 .content {
   display: grid;

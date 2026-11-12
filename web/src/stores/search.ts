@@ -3,6 +3,7 @@ import { defineStore } from 'pinia'
 
 import { useSearchApi } from '../composables/useSearchApi'
 import { HttpError } from '../utils/httpClient'
+import { logError } from '../utils/logError'
 import { createRequestTracker } from '../utils/requestTracker'
 import type {
   FacetCount,
@@ -109,6 +110,7 @@ export const useSearchStore = defineStore('search', () => {
       status.value = SEARCH_STATUS.SUCCESS
     } catch (caught) {
       if (!request.isCurrent()) return
+      logError('Search failed', caught, { params: searchParams.value })
       results.value = []
       count.value = 0
       error.value = getMessage(caught)
@@ -171,8 +173,9 @@ export const useSearchStore = defineStore('search', () => {
       if (!request.isCurrent()) return
       suggestions.value = matches.results
       suggestionKinds.value = kinds
-    } catch {
+    } catch (caught) {
       if (!request.isCurrent()) return
+      logError('Loading suggestions failed', caught, { text })
       suggestions.value = []
       suggestionKinds.value = []
     }
@@ -188,7 +191,8 @@ export const useSearchStore = defineStore('search', () => {
   async function loadFlagshipFunds() {
     try {
       flagshipFunds.value = (await api.getFlagshipFunds()).results
-    } catch {
+    } catch (caught) {
+      logError('Loading flagship funds failed', caught)
       flagshipFunds.value = []
     }
   }
@@ -199,8 +203,10 @@ export const useSearchStore = defineStore('search', () => {
     try {
       const counts = await api.getFacetCounts(key, filterParams.value, { signal: request.signal })
       if (request.isCurrent()) facets.value[key] = counts
-    } catch {
-      if (request.isCurrent()) facets.value[key] = []
+    } catch (caught) {
+      if (!request.isCurrent()) return
+      logError('Loading filter options failed', caught, { key })
+      facets.value[key] = []
     }
   }
 
@@ -211,8 +217,10 @@ export const useSearchStore = defineStore('search', () => {
     try {
       const count = await api.getFlagCount(key, filterParams.value, { signal: request.signal })
       if (request.isCurrent()) flagCounts.value[key] = count
-    } catch {
-      if (request.isCurrent()) flagCounts.value[key] = undefined
+    } catch (caught) {
+      if (!request.isCurrent()) return
+      logError('Loading filter count failed', caught, { key })
+      flagCounts.value[key] = undefined
     }
   }
 
@@ -230,10 +238,12 @@ export const useSearchStore = defineStore('search', () => {
       instrumentStatus.value = DETAIL_STATUS.SUCCESS
     } catch (caught) {
       if (!request.isCurrent()) return
-      instrumentStatus.value =
-        caught instanceof HttpError && caught.status === 404
-          ? DETAIL_STATUS.NOT_FOUND
-          : DETAIL_STATUS.ERROR
+      if (caught instanceof HttpError && caught.status === 404) {
+        instrumentStatus.value = DETAIL_STATUS.NOT_FOUND
+        return
+      }
+      logError('Loading details failed', caught, { id })
+      instrumentStatus.value = DETAIL_STATUS.ERROR
     }
   }
 

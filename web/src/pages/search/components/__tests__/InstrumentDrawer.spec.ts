@@ -117,12 +117,14 @@ describe('InstrumentDrawer', () => {
       expect(shown()).toContain('We couldn’t find that ETF or share.')
     })
 
-    it('says when loading failed', async () => {
-      await mountDrawer({ instrument: null, state: 'error' })
+    it('says when loading failed, with a button to try again', async () => {
+      const wrapper = await mountDrawer({ instrument: null, state: 'error' })
+      const alert = document.body.querySelector('[role="alert"]')
 
-      expect(document.body.querySelector('[role="alert"]')?.textContent).toContain(
-        'Something went wrong',
-      )
+      expect(alert?.textContent).toContain('We couldn’t load the details.')
+      alert?.querySelector('button')?.click()
+
+      expect(wrapper.emitted('retry')).toEqual([[]])
     })
 
     it('does not use the word instrument on screen', async () => {

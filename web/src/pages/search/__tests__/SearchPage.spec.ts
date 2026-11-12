@@ -439,18 +439,23 @@ describe('SearchPage', () => {
       await nextTick()
     })
 
-    it('shows the error with the message from the API', () => {
+    it('shows a friendly error, without the message from the API', () => {
       const error = wrapper.getComponent(ErrorMessage)
 
-      expect(error.props('title')).toBe('Search is unavailable right now.')
-      expect(error.props('message')).toBe('The API said: “Bad query”')
+      expect(error.props('title')).toBe('We couldn’t load results.')
+      expect(error.props('message')).toBe('Please try again in a moment.')
+      expect(error.text()).not.toContain('Bad query')
       expect(wrapper.getComponent(ResultsToolbar).text()).toContain('Search didn’t finish')
     })
 
-    it('searches again from the Try again button', async () => {
+    it('searches again from the Try again button, and reloads the filters', async () => {
+      vi.mocked(store.loadFacet).mockClear()
+
       await wrapper.get('[role="alert"] button').trigger('click')
 
       expect(store.search).toHaveBeenCalledTimes(2)
+      expect(store.loadFacet).toHaveBeenCalledWith('kind')
+      expect(store.loadFacet).toHaveBeenCalledWith('issuer')
     })
   })
 
@@ -605,6 +610,16 @@ describe('SearchPage', () => {
       const drawer = wrapper.getComponent(InstrumentDrawer)
       expect(drawer.props('instrument')).toEqual(VAS)
       expect(drawer.props('state')).toBe('success')
+    })
+
+    it('loads the same instrument again when the drawer asks to retry', async () => {
+      wrapper.findAllComponents(InstrumentRow)[1]!.vm.$emit('select', CBA)
+      await nextTick()
+      vi.mocked(store.loadInstrument).mockClear()
+
+      wrapper.getComponent(InstrumentDrawer).vm.$emit('retry')
+
+      expect(store.loadInstrument).toHaveBeenCalledWith('CBA:AU')
     })
 
     it('closes and clears the instrument when the drawer is closed', async () => {

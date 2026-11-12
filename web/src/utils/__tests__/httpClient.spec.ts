@@ -16,12 +16,11 @@ describe('buildUrl', () => {
   })
 })
 
-// Like the real fetch: rejects with an AbortError when the signal aborts.
+// Like the real fetch: rejects with the signal's reason, an AbortError or a TimeoutError.
 function fetchThatHonoursSignal(_url: unknown, options?: RequestInit): Promise<Response> {
   return new Promise((_resolve, reject) => {
-    options?.signal?.addEventListener('abort', () => {
-      reject(new DOMException('The operation was aborted.', 'AbortError'))
-    })
+    const signal = options?.signal
+    signal?.addEventListener('abort', () => reject(signal.reason))
   })
 }
 
@@ -72,10 +71,26 @@ describe('request', () => {
     await expect(promise).rejects.toMatchObject({ name: 'AbortError' })
   })
 
-  it('throws the API message and status for a non-OK response', async () => {
+  it('fails with a TimeoutError when the server takes too long', async () => {
+    fetchMock.mockImplementation(fetchThatHonoursSignal)
+
+    await expect(request('/x', { timeoutMs: 10 })).rejects.toMatchObject({ name: 'TimeoutError' })
+  })
+
+  it('still lets the caller cancel a request that has a time limit', async () => {
+    fetchMock.mockImplementation(fetchThatHonoursSignal)
+    const controller = new AbortController()
+
+    const promise = request('/x', { signal: controller.signal, timeoutMs: 60_000 })
+    controller.abort()
+
+    await expect(promise).rejects.toMatchObject({ name: 'AbortError' })
+  })
+
+  it('throws the API message, status and URL for a non-OK response', async () => {
     fetchMock.mockResolvedValue(new Response(JSON.stringify({ message: 'Bad' }), { status: 400 }))
 
-    await expect(request('/x')).rejects.toMatchObject({ message: 'Bad', status: 400 })
+    await expect(request('/x')).rejects.toMatchObject({ message: 'Bad', status: 400, url: '/x' })
   })
 
   it('falls back to the HTTP status when the error body is not JSON', async () => {

@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 
 import { HttpError } from '../../utils/httpClient'
+import { logError } from '../../utils/logError'
 import { useSearchStore } from '../search'
 
 const api = vi.hoisted(() => ({
@@ -14,6 +15,7 @@ const api = vi.hoisted(() => ({
 }))
 
 vi.mock('../../composables/useSearchApi', () => ({ useSearchApi: () => api }))
+vi.mock('../../utils/logError', () => ({ logError: vi.fn() }))
 
 const noFilters = {
   kind: [],
@@ -135,6 +137,9 @@ describe('search store', () => {
       expect(store.error).toBe('Bad query')
       expect(store.results).toEqual([])
       expect(store.count).toBe(0)
+      expect(logError).toHaveBeenCalledWith('Search failed', expect.any(Error), {
+        params: expect.objectContaining({ page: 1, size: 15 }),
+      })
     })
 
     it('clears an earlier error when it starts again', async () => {
@@ -282,6 +287,7 @@ describe('search store', () => {
 
       expect(store.status).toBe('loading')
       expect(store.error).toBeNull()
+      expect(logError).not.toHaveBeenCalled()
 
       second.resolve(searchResponse())
       await secondDone
@@ -343,6 +349,9 @@ describe('search store', () => {
       expect(store.suggestionKinds).toEqual([])
       expect(store.error).toBeNull()
       expect(store.status).toBe('idle')
+      expect(logError).toHaveBeenCalledWith('Loading suggestions failed', expect.any(Error), {
+        text: 'a2',
+      })
     })
 
     it('ignores an older response that arrives after a newer one', async () => {
@@ -387,6 +396,7 @@ describe('search store', () => {
 
       expect(store.flagshipFunds).toEqual([])
       expect(store.error).toBeNull()
+      expect(logError).toHaveBeenCalledWith('Loading flagship funds failed', expect.any(Error))
     })
   })
 
@@ -448,6 +458,9 @@ describe('search store', () => {
 
       expect(store.facets.kind).toEqual([])
       expect(store.status).toBe('idle')
+      expect(logError).toHaveBeenCalledWith('Loading filter options failed', expect.any(Error), {
+        key: 'kind',
+      })
     })
   })
   describe('yes/no filter counts', () => {
@@ -499,6 +512,9 @@ describe('search store', () => {
 
       expect(store.flagCounts.isBetashares).toBeUndefined()
       expect(store.status).toBe('idle')
+      expect(logError).toHaveBeenCalledWith('Loading filter count failed', expect.any(Error), {
+        key: 'isBetashares',
+      })
     })
   })
   describe('instrument details', () => {
@@ -531,18 +547,26 @@ describe('search store', () => {
     })
 
     it('reports an instrument that does not exist apart from other failures', async () => {
-      api.getInstrument.mockRejectedValue(new HttpError('Instrument not found: NOPE:AU', 404))
+      api.getInstrument.mockRejectedValue(
+        new HttpError('Instrument not found: NOPE:AU', 404, '/api/instruments/NOPE%3AAU'),
+      )
 
       await store.loadInstrument('NOPE:AU')
 
       expect(store.instrumentStatus).toBe('not-found')
       expect(store.instrument).toBeNull()
+      expect(logError).not.toHaveBeenCalled()
     })
 
     it('reports any other failure as an error', async () => {
-      api.getInstrument.mockRejectedValue(new HttpError('Server error', 500))
+      api.getInstrument.mockRejectedValue(
+        new HttpError('Server error', 500, '/api/instruments/A200%3AAU'),
+      )
       await store.loadInstrument('A200:AU')
       expect(store.instrumentStatus).toBe('error')
+      expect(logError).toHaveBeenCalledWith('Loading details failed', expect.any(HttpError), {
+        id: 'A200:AU',
+      })
 
       api.getInstrument.mockRejectedValue(new TypeError('Failed to fetch'))
       await store.loadInstrument('A200:AU')
