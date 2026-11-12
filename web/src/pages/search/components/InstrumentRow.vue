@@ -6,6 +6,8 @@ import HighlightedText from '../../../components/HighlightedText.vue'
 import type { Instrument } from '../../../types/search'
 import { formatUnits, issuerName, kindLabel } from '../utils/format'
 
+defineEmits<{ select: [instrument: Instrument] }>()
+
 defineProps<{
   instrument: Instrument
   // The words of the search, highlighted in the ticker, name and issuer.
@@ -18,7 +20,17 @@ defineProps<{
     <AvatarBadge :label="instrument.symbol" :image-url="instrument.logoUrl" class="avatar" />
     <span class="top">
       <span class="ticker"><HighlightedText :text="instrument.symbol" :terms="terms" /></span>
-      <span class="name"><HighlightedText :text="instrument.name" :terms="terms" /></span>
+      <span class="name">
+        <!-- The whole row is clickable through this button, so it is a single tab stop. -->
+        <button
+          type="button"
+          class="open"
+          :aria-label="`Show details for ${instrument.name} (${instrument.symbol})`"
+          @click="$emit('select', instrument)"
+        >
+          <HighlightedText :text="instrument.name" :terms="terms" />
+        </button>
+      </span>
     </span>
     <span class="sub">
       <Tag :value="kindLabel(instrument.kind)" severity="secondary" />
@@ -45,12 +57,54 @@ defineProps<{
 
 <style scoped>
 .row {
+  position: relative;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 4px 14px;
   align-items: center;
   padding: 14px 16px;
+  cursor: pointer;
   background: var(--p-content-background);
+}
+
+.row:hover {
+  background: var(--p-surface-100);
+}
+
+.app-dark .row:hover {
+  background: var(--p-surface-800);
+}
+
+.row:hover .name {
+  text-decoration: underline;
+  text-decoration-color: var(--p-primary-500);
+  text-underline-offset: 3px;
+}
+
+.row:has(.open:focus-visible) {
+  outline: 2px solid var(--p-primary-color);
+  outline-offset: -2px;
+}
+
+.open {
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  background: none;
+  border: 0;
+}
+
+/* Stretches the button over the whole row, so a click anywhere on the row opens the details. */
+.open::after {
+  position: absolute;
+  inset: 0;
+  content: '';
+}
+
+.open:focus-visible {
+  outline: none;
 }
 
 .avatar {

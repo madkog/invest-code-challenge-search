@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 
+import { HttpError } from '../../utils/httpClient'
 import { useSearchStore } from '../search'
 
 const api = vi.hoisted(() => ({
@@ -9,6 +10,7 @@ const api = vi.hoisted(() => ({
   getFlagshipFunds: vi.fn(),
   getFacetCounts: vi.fn(),
   getFlagCount: vi.fn(),
+  getInstrument: vi.fn(),
 }))
 
 vi.mock('../../composables/useSearchApi', () => ({ useSearchApi: () => api }))
@@ -508,6 +510,103 @@ describe('search store', () => {
 
       expect(store.flagCounts.isBetashares).toBeUndefined()
       expect(store.status).toBe('idle')
+    })
+  })
+  describe('instrument details', () => {
+    it('starts with nothing loaded', () => {
+      expect(store.instrument).toBeNull()
+      expect(store.instrumentStatus).toBe('idle')
+    })
+
+    it('loads one instrument by id', async () => {
+      api.getInstrument.mockResolvedValue(A200)
+
+      await store.loadInstrument('A200:AU')
+
+      expect(api.getInstrument).toHaveBeenCalledWith('A200:AU', { signal: expect.any(AbortSignal) })
+      expect(store.instrument).toEqual(A200)
+      expect(store.instrumentStatus).toBe('success')
+    })
+
+    it('is loading, with no instrument, while the request is pending', async () => {
+      const pending = deferred()
+      api.getInstrument.mockReturnValue(pending.promise)
+
+      const done = store.loadInstrument('A200:AU')
+      expect(store.instrumentStatus).toBe('loading')
+      expect(store.instrument).toBeNull()
+
+      pending.resolve(A200)
+      await done
+      expect(store.instrumentStatus).toBe('success')
+    })
+
+    it('reports an instrument that does not exist apart from other failures', async () => {
+      api.getInstrument.mockRejectedValue(new HttpError('Instrument not found: NOPE:AU', 404))
+
+      await store.loadInstrument('NOPE:AU')
+
+      expect(store.instrumentStatus).toBe('not-found')
+      expect(store.instrument).toBeNull()
+    })
+
+    it('reports any other failure as an error', async () => {
+      api.getInstrument.mockRejectedValue(new HttpError('Server error', 500))
+      await store.loadInstrument('A200:AU')
+      expect(store.instrumentStatus).toBe('error')
+
+      api.getInstrument.mockRejectedValue(new TypeError('Failed to fetch'))
+      await store.loadInstrument('A200:AU')
+      expect(store.instrumentStatus).toBe('error')
+    })
+
+    it('does not touch the search results or status', async () => {
+      api.getInstrument.mockResolvedValue(A200)
+
+      await store.loadInstrument('A200:AU')
+
+      expect(store.status).toBe('idle')
+      expect(api.search).not.toHaveBeenCalled()
+    })
+
+    it('forgets the earlier instrument as soon as another one starts loading', async () => {
+      api.getInstrument.mockResolvedValue(A200)
+      await store.loadInstrument('A200:AU')
+
+      api.getInstrument.mockReturnValue(new Promise(() => {}))
+      store.loadInstrument('VAS:AU')
+
+      expect(store.instrument).toBeNull()
+      expect(store.instrumentStatus).toBe('loading')
+    })
+
+    it('ignores an older response that arrives after a newer one', async () => {
+      const first = deferred()
+      const second = deferred()
+      api.getInstrument.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise)
+
+      const firstDone = store.loadInstrument('A200:AU')
+      const secondDone = store.loadInstrument('VAS:AU')
+      second.resolve({ symbol: 'VAS' })
+      await secondDone
+      first.resolve({ symbol: 'A200' })
+      await firstDone
+
+      expect(store.instrument).toEqual({ symbol: 'VAS' })
+      expect(signalOf(api.getInstrument, 0).aborted).toBe(true)
+    })
+
+    it('clearInstrument forgets the instrument and cancels a pending request', async () => {
+      const pending = deferred()
+      api.getInstrument.mockReturnValue(pending.promise)
+
+      const done = store.loadInstrument('A200:AU')
+      store.clearInstrument()
+      pending.resolve(A200)
+      await done
+
+      expect(store.instrument).toBeNull()
+      expect(store.instrumentStatus).toBe('idle')
     })
   })
 })

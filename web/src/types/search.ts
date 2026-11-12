@@ -22,7 +22,7 @@ export interface Instrument {
 }
 
 // The light result used for suggestions.
-export type Suggestion = Pick<Instrument, 'symbol' | 'name' | 'kind' | 'issuer'>
+export type Suggestion = Pick<Instrument, 'id' | 'symbol' | 'name' | 'kind' | 'issuer'>
 
 // The filters the user has chosen.
 export interface Filters {

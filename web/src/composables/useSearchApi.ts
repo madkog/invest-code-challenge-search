@@ -33,7 +33,10 @@ interface ApiInstrument {
   units_circulating: string | null
 }
 
-type ApiSuggestion = Pick<ApiInstrument, 'symbol' | 'display_name' | 'kind' | 'issuer'>
+type ApiSuggestion = Pick<
+  ApiInstrument,
+  'symbol' | 'symbol_openfigi' | 'display_name' | 'kind' | 'issuer'
+>
 
 // The API sends every facet value as text, including "true" and "false" for yes/no filters.
 interface ApiFacetCount {
@@ -82,7 +85,7 @@ const API_SORT_FIELDS: Record<Sort['field'], string> = {
   unitsCirculating: 'units_circulating',
 }
 
-const SUGGESTION_FIELDS = ['symbol', 'display_name', 'kind', 'issuer']
+const SUGGESTION_FIELDS = ['symbol', 'symbol_openfigi', 'display_name', 'kind', 'issuer']
 const FLAGSHIP_SIZE = 4
 const FLAG_FILTERS = ['isBetashares', 'isFlagshipFund', 'isAutoInvestIncluded'] as const
 
@@ -136,6 +139,7 @@ function toInstrument(api: ApiInstrument): Instrument {
 
 function toSuggestion(api: ApiSuggestion): Suggestion {
   return {
+    id: api.symbol_openfigi,
     symbol: api.symbol,
     name: api.display_name,
     kind: toKind(api.kind),

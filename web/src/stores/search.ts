@@ -2,6 +2,7 @@ import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
 
 import { useSearchApi } from '../composables/useSearchApi'
+import { HttpError } from '../utils/httpClient'
 import type {
   FacetCount,
   FacetKey,
@@ -22,6 +23,15 @@ export const SEARCH_STATUS = Object.freeze({
   ERROR: 'error',
 } as const)
 export type SearchStatus = (typeof SEARCH_STATUS)[keyof typeof SEARCH_STATUS]
+
+export const DETAIL_STATUS = Object.freeze({
+  IDLE: 'idle',
+  LOADING: 'loading',
+  SUCCESS: 'success',
+  NOT_FOUND: 'not-found',
+  ERROR: 'error',
+} as const)
+export type DetailStatus = (typeof DETAIL_STATUS)[keyof typeof DETAIL_STATUS]
 
 function createEmptyFilters(): Filters {
   return {
@@ -64,6 +74,8 @@ export const useSearchStore = defineStore('search', () => {
   const flagshipFunds = ref<Suggestion[]>([]) // suggested when the box is empty
   const facets = ref<Partial<Record<FacetKey, FacetCount[]>>>({}) // facet key -> counts
   const flagCounts = ref<Partial<Record<FlagKey, number>>>({}) // yes/no filter -> count
+  const instrument = ref<Instrument | null>(null) // the one shown in the details
+  const instrumentStatus = ref<DetailStatus>(DETAIL_STATUS.IDLE)
 
   const totalPages = computed(() => Math.ceil(count.value / pageSize.value))
   const isEmpty = computed(
@@ -87,6 +99,7 @@ export const useSearchStore = defineStore('search', () => {
   let suggestionsController: AbortController | null = null
   const facetControllers: Partial<Record<FacetKey, AbortController>> = {} // one per facet key
   const flagControllers: Partial<Record<FlagKey, AbortController>> = {} // one per yes/no filter
+  let instrumentController: AbortController | null = null
 
   async function search() {
     searchController?.abort()
@@ -220,6 +233,35 @@ export const useSearchStore = defineStore('search', () => {
     }
   }
 
+  // Loads one instrument for the details. A missing one is reported apart from other failures.
+  async function loadInstrument(id: string) {
+    instrumentController?.abort()
+    const controller = new AbortController()
+    instrumentController = controller
+
+    instrument.value = null
+    instrumentStatus.value = DETAIL_STATUS.LOADING
+
+    try {
+      const found = await api.getInstrument(id, { signal: controller.signal })
+      if (controller.signal.aborted) return
+      instrument.value = found
+      instrumentStatus.value = DETAIL_STATUS.SUCCESS
+    } catch (caught) {
+      if (controller.signal.aborted) return
+      instrumentStatus.value =
+        caught instanceof HttpError && caught.status === 404
+          ? DETAIL_STATUS.NOT_FOUND
+          : DETAIL_STATUS.ERROR
+    }
+  }
+
+  function clearInstrument() {
+    instrumentController?.abort()
+    instrument.value = null
+    instrumentStatus.value = DETAIL_STATUS.IDLE
+  }
+
   return {
     query,
     filters,
@@ -235,6 +277,8 @@ export const useSearchStore = defineStore('search', () => {
     flagshipFunds,
     facets,
     flagCounts,
+    instrument,
+    instrumentStatus,
     totalPages,
     isEmpty,
     search,
@@ -249,5 +293,7 @@ export const useSearchStore = defineStore('search', () => {
     loadFlagshipFunds,
     loadFacet,
     loadFlagCount,
+    loadInstrument,
+    clearInstrument,
   }
 })

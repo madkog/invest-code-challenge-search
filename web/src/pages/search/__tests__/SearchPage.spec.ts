@@ -12,6 +12,7 @@ import PaginationBar from '../../../components/PaginationBar.vue'
 import { useSearchStore } from '../../../stores/search'
 import type { Instrument } from '../../../types/search'
 import FilterPanel from '../components/FilterPanel.vue'
+import InstrumentDrawer from '../components/InstrumentDrawer.vue'
 import InstrumentRow from '../components/InstrumentRow.vue'
 import PopularSearches from '../components/PopularSearches.vue'
 import ResultsToolbar from '../components/ResultsToolbar.vue'
@@ -25,6 +26,7 @@ vi.mock('../../../composables/useSearchApi', () => ({
     getFlagshipFunds: vi.fn(),
     getFacetCounts: vi.fn(),
     getFlagCount: vi.fn(),
+    getInstrument: vi.fn(),
   }),
 }))
 
@@ -41,6 +43,8 @@ const ACTIONS = [
   'loadFlagshipFunds',
   'loadFacet',
   'loadFlagCount',
+  'loadInstrument',
+  'clearInstrument',
 ] as const
 
 const VAS: Instrument = {
@@ -131,10 +135,12 @@ describe('SearchPage', () => {
     })
 
     it('gives the search box the suggestion data from the store', async () => {
-      store.suggestions = [{ symbol: 'VAS', name: VAS.name, kind: 'etf', issuer: 'vanguard' }]
+      store.suggestions = [
+        { id: 'VAS:AU', symbol: 'VAS', name: VAS.name, kind: 'etf', issuer: 'vanguard' },
+      ]
       store.suggestionKinds = [{ value: 'etf', count: 8 }]
       store.flagshipFunds = [
-        { symbol: 'A200', name: 'Australia 200', kind: 'etf', issuer: 'betashares' },
+        { id: 'A200:AU', symbol: 'A200', name: 'Australia 200', kind: 'etf', issuer: 'betashares' },
       ]
       await nextTick()
 
@@ -474,6 +480,81 @@ describe('SearchPage', () => {
       await nextTick()
 
       expect(document.activeElement).toBe(wrapper.get('.summary').element)
+    })
+  })
+
+  describe('details drawer', () => {
+    beforeEach(async () => {
+      store.results = [VAS, CBA]
+      store.count = 2
+      store.status = 'success'
+      await nextTick()
+    })
+
+    it('starts closed', () => {
+      expect(wrapper.getComponent(InstrumentDrawer).props('visible')).toBe(false)
+    })
+
+    it('opens and loads the instrument when a result row is clicked', async () => {
+      wrapper.findAllComponents(InstrumentRow)[1]!.vm.$emit('select', CBA)
+      await nextTick()
+
+      expect(store.loadInstrument).toHaveBeenCalledWith('CBA:AU')
+      expect(wrapper.getComponent(InstrumentDrawer).props('visible')).toBe(true)
+    })
+
+    it('searches for the instrument and opens its details when it is picked in the search box', async () => {
+      store.query = 'mining'
+      wrapper.getComponent(SearchBox).vm.$emit('update:modelValue', 'char')
+      await nextTick()
+
+      wrapper.getComponent(SearchBox).vm.$emit('open', { id: 'CHC:AU', name: 'Charter Hall Group' })
+      await nextTick()
+
+      expect(store.setQuery).toHaveBeenCalledWith('Charter Hall Group')
+      expect(store.loadInstrument).toHaveBeenCalledWith('CHC:AU')
+      expect(wrapper.getComponent(InstrumentDrawer).props('visible')).toBe(true)
+      expect(wrapper.getComponent(SearchBox).props('modelValue')).toBe('Charter Hall Group')
+    })
+
+    it('clears the suggestions and remembers the pick as a recent search', async () => {
+      wrapper.getComponent(SearchBox).vm.$emit('open', { id: 'CHC:AU', name: 'Charter Hall Group' })
+      await nextTick()
+
+      expect(store.clearSuggestions).toHaveBeenCalled()
+      expect(wrapper.getComponent(SearchBox).props('recent')).toEqual(['Charter Hall Group'])
+    })
+
+    it('keeps what was typed when a result row is clicked instead', async () => {
+      wrapper.getComponent(SearchBox).vm.$emit('update:modelValue', 'van')
+      await nextTick()
+
+      wrapper.findAllComponents(InstrumentRow)[0]!.vm.$emit('select', VAS)
+      await nextTick()
+
+      expect(wrapper.getComponent(SearchBox).props('modelValue')).toBe('van')
+      expect(store.setQuery).not.toHaveBeenCalled()
+    })
+
+    it('shows what the store has loaded', async () => {
+      store.instrument = VAS
+      store.instrumentStatus = 'success'
+      await nextTick()
+
+      const drawer = wrapper.getComponent(InstrumentDrawer)
+      expect(drawer.props('instrument')).toEqual(VAS)
+      expect(drawer.props('state')).toBe('success')
+    })
+
+    it('closes and clears the instrument when the drawer is closed', async () => {
+      wrapper.getComponent(SearchBox).vm.$emit('open', { id: 'VAS:AU', name: VAS.name })
+      await nextTick()
+
+      wrapper.getComponent(InstrumentDrawer).vm.$emit('update:visible', false)
+      await nextTick()
+
+      expect(store.clearInstrument).toHaveBeenCalled()
+      expect(wrapper.getComponent(InstrumentDrawer).props('visible')).toBe(false)
     })
   })
 })

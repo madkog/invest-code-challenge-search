@@ -26,6 +26,8 @@ const emit = defineEmits<{
   complete: [text: string]
   // Search for this text, optionally only ETFs or only shares.
   search: [search: { text: string; kind?: Kind }]
+  // An ETF or share was picked: show it in the results and open its details.
+  open: [instrument: { id: string; name: string }]
 }>()
 
 // The text the current suggestions are for.
@@ -56,7 +58,7 @@ function onSelect(option: SuggestionOption) {
   if (action?.type === 'search') {
     emit('search', action.kind ? { text: action.text, kind: action.kind } : { text: action.text })
   }
-  if (action?.type === 'item') emit('search', { text: action.symbol })
+  if (action?.type === 'item') emit('open', { id: action.id, name: action.name })
 }
 </script>
 

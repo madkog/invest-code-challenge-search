@@ -4,13 +4,26 @@ import type { Suggestion } from '../../../../../types/search'
 import { buildSuggestionGroups } from '../suggestionGroups'
 
 const VAS: Suggestion = {
+  id: 'VAS:AU',
   symbol: 'VAS',
   name: 'Vanguard Australian Shares',
   kind: 'etf',
   issuer: 'vanguard',
 }
-const CBA: Suggestion = { symbol: 'CBA', name: 'Commonwealth Bank', kind: 'share', issuer: null }
-const NO_ISSUER_ETF: Suggestion = { symbol: 'XYZ', name: 'Some ETF', kind: 'etf', issuer: null }
+const CBA: Suggestion = {
+  id: 'CBA:AU',
+  symbol: 'CBA',
+  name: 'Commonwealth Bank',
+  kind: 'share',
+  issuer: null,
+}
+const NO_ISSUER_ETF: Suggestion = {
+  id: 'XYZ:AU',
+  symbol: 'XYZ',
+  name: 'Some ETF',
+  kind: 'etf',
+  issuer: null,
+}
 
 function build(overrides: Partial<Parameters<typeof buildSuggestionGroups>[0]> = {}) {
   return buildSuggestionGroups({
@@ -113,7 +126,11 @@ describe('buildSuggestionGroups with text typed', () => {
     const { groups, actions } = build({ text: 'a', instruments: [VAS] })
 
     const key = groups.find((group) => group.title === 'ETFs and shares')!.items[0]!.key
-    expect(actions.get(key)).toEqual({ type: 'item', symbol: 'VAS' })
+    expect(actions.get(key)).toEqual({
+      type: 'item',
+      id: 'VAS:AU',
+      name: 'Vanguard Australian Shares',
+    })
   })
 
   it('offers popular searches that contain the text, except the text itself', () => {

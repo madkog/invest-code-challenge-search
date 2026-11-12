@@ -16,6 +16,7 @@ import type { FlagKey, Instrument, Kind } from '../../types/search'
 import type { FilterChip } from '../../types/ui'
 import { searchTerms } from '../../utils/text'
 import FilterPanel from './components/FilterPanel.vue'
+import InstrumentDrawer from './components/InstrumentDrawer.vue'
 import InstrumentRow from './components/InstrumentRow.vue'
 import PopularSearches from './components/PopularSearches.vue'
 import ResultsToolbar from './components/ResultsToolbar.vue'
@@ -40,6 +41,8 @@ const {
   flagshipFunds,
   facets,
   flagCounts,
+  instrument,
+  instrumentStatus,
   isEmpty,
 } = storeToRefs(store)
 
@@ -48,6 +51,7 @@ const toolbar = useTemplateRef<InstanceType<typeof ResultsToolbar>>('toolbar')
 
 // What is typed in the box. The search only changes when it is submitted or a suggestion is picked.
 const draft = ref(query.value)
+const drawerOpen = ref(false)
 
 const isLoading = computed(() => status.value === SEARCH_STATUS.LOADING)
 const hasError = computed(() => status.value === SEARCH_STATUS.ERROR)
@@ -92,6 +96,23 @@ function runSearch(text: string, kind?: Kind) {
     if (kind) store.setFilter('kind', [kind])
     store.setQuery(text)
   })
+}
+
+function openInstrument(id: string) {
+  drawerOpen.value = true
+  store.loadInstrument(id)
+}
+
+// Picking an ETF or share in the search box searches for it, so the box and the results show the
+// one that was picked, and opens its details.
+function openInstrumentFromSearch(picked: { id: string; name: string }) {
+  runSearch(picked.name)
+  openInstrument(picked.id)
+}
+
+function onDrawerVisible(visible: boolean) {
+  drawerOpen.value = visible
+  if (!visible) store.clearInstrument()
 }
 
 function onKind(kinds: Kind[]) {
@@ -152,6 +173,7 @@ onMounted(() => {
         placeholder="Ticker, fund name or issuer, e.g. A200, bank, vanguard"
         @complete="store.loadSuggestions($event)"
         @search="runSearch($event.text, $event.kind)"
+        @open="openInstrumentFromSearch"
       />
       <div class="hint">
         Tip: use <code>OR</code> to search for either term, like <code>bank OR mining</code>.
@@ -208,13 +230,24 @@ onMounted(() => {
         <template v-else-if="results.length">
           <ResultsList :items="results" :item-key="resultKey" label="Search results">
             <template #item="{ item }">
-              <InstrumentRow :instrument="item" :terms="terms" />
+              <InstrumentRow
+                :instrument="item"
+                :terms="terms"
+                @select="openInstrument($event.id)"
+              />
             </template>
           </ResultsList>
           <PaginationBar :page="page" :page-size="pageSize" :total="count" @change="onPageChange" />
         </template>
       </main>
     </div>
+
+    <InstrumentDrawer
+      :visible="drawerOpen"
+      :instrument="instrument"
+      :state="instrumentStatus"
+      @update:visible="onDrawerVisible"
+    />
   </div>
 </template>
 

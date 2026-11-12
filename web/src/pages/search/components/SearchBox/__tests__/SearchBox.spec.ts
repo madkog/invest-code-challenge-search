@@ -7,6 +7,7 @@ import type { Suggestion } from '../../../../../types/search'
 import SearchBox from '../SearchBox.vue'
 
 const VAS: Suggestion = {
+  id: 'VAS:AU',
   symbol: 'VAS',
   name: 'Vanguard Australian Shares',
   kind: 'etf',
@@ -141,7 +142,7 @@ describe('SearchBox', () => {
       expect(wrapper.emitted('search')).toEqual([[{ text: 'bank' }]])
     })
 
-    it('searches for the ticker when a matching instrument is picked', async () => {
+    it('reports the instrument, with its id and name, when a matching one is picked', async () => {
       const wrapper = mountBox({ instruments: [VAS] })
       wrapper.getComponent(SearchInput).vm.$emit('complete', 'vas')
       await wrapper.vm.$nextTick()
@@ -149,7 +150,10 @@ describe('SearchBox', () => {
       const item = groupsOf(wrapper).find((group) => group.title === 'ETFs and shares')!.items[0]!
       wrapper.getComponent(SearchInput).vm.$emit('select', item)
 
-      expect(wrapper.emitted('search')).toEqual([[{ text: 'VAS' }]])
+      expect(wrapper.emitted('open')).toEqual([
+        [{ id: 'VAS:AU', name: 'Vanguard Australian Shares' }],
+      ])
+      expect(wrapper.emitted('search')).toBeUndefined()
     })
 
     it('ignores a suggestion it does not know', () => {

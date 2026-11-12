@@ -218,7 +218,9 @@ describe('useSearchApi', () => {
     it('searches with light fields and the given text and size', async () => {
       await api.getSuggestions('vas', { size: 5 })
 
-      expect(lastCall().url).toBe('/api/search?fields=symbol%2Cdisplay_name%2Ckind%2Cissuer')
+      expect(lastCall().url).toBe(
+        '/api/search?fields=symbol%2Csymbol_openfigi%2Cdisplay_name%2Ckind%2Cissuer',
+      )
       expect(sentBody()).toEqual({ search_text: 'vas', size: 5 })
     })
 
@@ -228,17 +230,24 @@ describe('useSearchApi', () => {
       expect(sentBody()).toEqual({ search_text: 'vas', size: 6 })
     })
 
-    it('returns symbol, name, kind and issuer in the app format', async () => {
+    it('returns id, symbol, name, kind and issuer in the app format', async () => {
       fetchMock.mockResolvedValue(
         jsonResponse({
           results: [
             {
               symbol: 'VAS',
+              symbol_openfigi: 'VAS:AU',
               display_name: 'Vanguard Australian Shares',
               kind: 'etf',
               issuer: 'vanguard',
             },
-            { symbol: 'CBA', display_name: 'Commonwealth Bank', kind: 'equity', issuer: null },
+            {
+              symbol: 'CBA',
+              symbol_openfigi: 'CBA:AU',
+              display_name: 'Commonwealth Bank',
+              kind: 'equity',
+              issuer: null,
+            },
           ],
           count: 2,
           indexed_at: 1,
@@ -247,8 +256,14 @@ describe('useSearchApi', () => {
 
       expect(await api.getSuggestions('a')).toEqual({
         results: [
-          { symbol: 'VAS', name: 'Vanguard Australian Shares', kind: 'etf', issuer: 'vanguard' },
-          { symbol: 'CBA', name: 'Commonwealth Bank', kind: 'share', issuer: null },
+          {
+            id: 'VAS:AU',
+            symbol: 'VAS',
+            name: 'Vanguard Australian Shares',
+            kind: 'etf',
+            issuer: 'vanguard',
+          },
+          { id: 'CBA:AU', symbol: 'CBA', name: 'Commonwealth Bank', kind: 'share', issuer: null },
         ],
         count: 2,
       })
@@ -259,7 +274,9 @@ describe('useSearchApi', () => {
     it('searches for flagship funds with light fields and a small size', async () => {
       await api.getFlagshipFunds()
 
-      expect(lastCall().url).toBe('/api/search?fields=symbol%2Cdisplay_name%2Ckind%2Cissuer')
+      expect(lastCall().url).toBe(
+        '/api/search?fields=symbol%2Csymbol_openfigi%2Cdisplay_name%2Ckind%2Cissuer',
+      )
       expect(sentBody()).toEqual({ is_flagship_fund: { value: true }, size: 4 })
     })
 
@@ -273,7 +290,13 @@ describe('useSearchApi', () => {
       fetchMock.mockResolvedValue(
         jsonResponse({
           results: [
-            { symbol: 'A200', display_name: 'Australia 200', kind: 'etf', issuer: 'betashares' },
+            {
+              symbol: 'A200',
+              symbol_openfigi: 'A200:AU',
+              display_name: 'Australia 200',
+              kind: 'etf',
+              issuer: 'betashares',
+            },
           ],
           count: 9,
           indexed_at: 1,
@@ -281,7 +304,15 @@ describe('useSearchApi', () => {
       )
 
       expect(await api.getFlagshipFunds()).toEqual({
-        results: [{ symbol: 'A200', name: 'Australia 200', kind: 'etf', issuer: 'betashares' }],
+        results: [
+          {
+            id: 'A200:AU',
+            symbol: 'A200',
+            name: 'Australia 200',
+            kind: 'etf',
+            issuer: 'betashares',
+          },
+        ],
         count: 9,
       })
     })

@@ -4,7 +4,7 @@ import { issuerName, kindLabel, kindPluralLabel } from '../../utils/format'
 
 // What happens when a suggestion is picked.
 export type SuggestionAction =
-  { type: 'search'; text: string; kind?: Kind } | { type: 'item'; symbol: string }
+  { type: 'search'; text: string; kind?: Kind } | { type: 'item'; id: string; name: string }
 
 export interface SuggestionModel {
   groups: SuggestionGroup[]
@@ -40,7 +40,7 @@ function termOptions(
 
 function itemOption(item: Suggestion, actions: Map<string, SuggestionAction>): SuggestionOption {
   const key = `item:${item.symbol}`
-  actions.set(key, { type: 'item', symbol: item.symbol })
+  actions.set(key, { type: 'item', id: item.id, name: item.name })
   const meta =
     item.kind === 'etf'
       ? item.issuer

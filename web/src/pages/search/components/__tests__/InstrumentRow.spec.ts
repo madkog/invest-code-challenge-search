@@ -99,4 +99,29 @@ describe('InstrumentRow', () => {
     expect(without.find('img').exists()).toBe(false)
     expect(without.text()).toContain('VA')
   })
+
+  describe('opening the details', () => {
+    it('has one button, named for the ETF or share', () => {
+      const buttons = mountRow(VAS).findAll('button')
+
+      expect(buttons).toHaveLength(1)
+      expect(buttons[0]!.attributes('aria-label')).toBe(
+        'Show details for Vanguard Australian Shares Index ETF (VAS)',
+      )
+    })
+
+    it('reports the instrument when the button is clicked', async () => {
+      const wrapper = mountRow(VAS)
+
+      await wrapper.get('button').trigger('click')
+
+      expect(wrapper.emitted('select')).toEqual([[VAS]])
+    })
+
+    it('still highlights the search words in the name inside the button', () => {
+      const wrapper = mountRow(VAS, ['australian'])
+
+      expect(wrapper.get('button mark').text().toLowerCase()).toBe('australian')
+    })
+  })
 })
