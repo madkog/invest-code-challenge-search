@@ -3,7 +3,13 @@ import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vite
 import type { Filters, Instrument } from '../../types/search'
 import { useSearchApi } from '../useSearchApi'
 
-const noFilters: Filters = { kind: [], issuer: [], isBetashares: null, isFlagshipFund: null }
+const noFilters: Filters = {
+  kind: [],
+  issuer: [],
+  isBetashares: null,
+  isFlagshipFund: null,
+  isAutoInvestIncluded: null,
+}
 
 // An instrument as the API sends it, and the same instrument in the app's format.
 const API_A200 = {
@@ -107,6 +113,30 @@ describe('useSearchApi', () => {
       })
     })
 
+    it('sends kinds with the API names, so a share is "equity"', async () => {
+      await api.search({ filters: { kind: ['etf', 'share'] } })
+
+      expect(sentBody()).toEqual({ kind: ['etf', 'equity'] })
+    })
+
+    it('sends the Auto Invest filter with its API name', async () => {
+      await api.search({ filters: { isAutoInvestIncluded: true } })
+
+      expect(sentBody()).toEqual({ is_auto_invest_included: { value: true } })
+    })
+
+    it('accepts some of the filters only', async () => {
+      await api.search({ filters: { issuer: ['vanguard'] } })
+
+      expect(sentBody()).toEqual({ issuer: ['vanguard'] })
+    })
+
+    it('sends the shares on issue sort with the API field name', async () => {
+      await api.search({ sort: { field: 'unitsCirculating', direction: 'desc' } })
+
+      expect(sentBody()).toEqual({ order_by: 'units_circulating.desc' })
+    })
+
     it('sends the name sort with the API field name', async () => {
       await api.search({ sort: { field: 'name', direction: 'desc' } })
 
@@ -152,6 +182,23 @@ describe('useSearchApi', () => {
       expect(await api.search()).toEqual({ results: [APP_A200], count: 42 })
     })
 
+    it('turns the API kind "equity" into the app kind "share", and anything else into "etf"', async () => {
+      fetchMock.mockResolvedValue(
+        jsonResponse({
+          results: [
+            { ...API_A200, kind: 'equity' },
+            { ...API_A200, kind: 'etf' },
+          ],
+          count: 2,
+          indexed_at: 1,
+        }),
+      )
+
+      const { results } = await api.search()
+
+      expect(results.map((result) => result.kind)).toEqual(['share', 'etf'])
+    })
+
     it('turns a missing units value into null', async () => {
       fetchMock.mockResolvedValue(
         jsonResponse({
@@ -171,7 +218,7 @@ describe('useSearchApi', () => {
     it('searches with light fields and the given text and size', async () => {
       await api.getSuggestions('vas', { size: 5 })
 
-      expect(lastCall().url).toBe('/api/search?fields=symbol%2Cdisplay_name')
+      expect(lastCall().url).toBe('/api/search?fields=symbol%2Cdisplay_name%2Ckind%2Cissuer')
       expect(sentBody()).toEqual({ search_text: 'vas', size: 5 })
     })
 
@@ -181,18 +228,61 @@ describe('useSearchApi', () => {
       expect(sentBody()).toEqual({ search_text: 'vas', size: 6 })
     })
 
-    it('returns symbol and name in the app format', async () => {
+    it('returns symbol, name, kind and issuer in the app format', async () => {
       fetchMock.mockResolvedValue(
         jsonResponse({
-          results: [{ symbol: 'VAS', display_name: 'Vanguard Australian Shares' }],
-          count: 1,
+          results: [
+            {
+              symbol: 'VAS',
+              display_name: 'Vanguard Australian Shares',
+              kind: 'etf',
+              issuer: 'vanguard',
+            },
+            { symbol: 'CBA', display_name: 'Commonwealth Bank', kind: 'equity', issuer: null },
+          ],
+          count: 2,
           indexed_at: 1,
         }),
       )
 
-      expect(await api.getSuggestions('vas')).toEqual({
-        results: [{ symbol: 'VAS', name: 'Vanguard Australian Shares' }],
-        count: 1,
+      expect(await api.getSuggestions('a')).toEqual({
+        results: [
+          { symbol: 'VAS', name: 'Vanguard Australian Shares', kind: 'etf', issuer: 'vanguard' },
+          { symbol: 'CBA', name: 'Commonwealth Bank', kind: 'share', issuer: null },
+        ],
+        count: 2,
+      })
+    })
+  })
+
+  describe('getFlagshipFunds', () => {
+    it('searches for flagship funds with light fields and a small size', async () => {
+      await api.getFlagshipFunds()
+
+      expect(lastCall().url).toBe('/api/search?fields=symbol%2Cdisplay_name%2Ckind%2Cissuer')
+      expect(sentBody()).toEqual({ is_flagship_fund: { value: true }, size: 4 })
+    })
+
+    it('uses the size it is given', async () => {
+      await api.getFlagshipFunds({ size: 2 })
+
+      expect(sentBody()).toEqual({ is_flagship_fund: { value: true }, size: 2 })
+    })
+
+    it('returns the suggestions in the app format', async () => {
+      fetchMock.mockResolvedValue(
+        jsonResponse({
+          results: [
+            { symbol: 'A200', display_name: 'Australia 200', kind: 'etf', issuer: 'betashares' },
+          ],
+          count: 9,
+          indexed_at: 1,
+        }),
+      )
+
+      expect(await api.getFlagshipFunds()).toEqual({
+        results: [{ symbol: 'A200', name: 'Australia 200', kind: 'etf', issuer: 'betashares' }],
+        count: 9,
       })
     })
   })
@@ -222,15 +312,30 @@ describe('useSearchApi', () => {
     })
 
     it('returns the counts', async () => {
-      fetchMock.mockResolvedValue(jsonResponse([{ value: 'etf', count: 5 }]))
+      fetchMock.mockResolvedValue(jsonResponse([{ value: 'vanguard', count: 5 }]))
 
-      expect(await api.getFacetCounts('kind')).toEqual([{ value: 'etf', count: 5 }])
+      expect(await api.getFacetCounts('issuer')).toEqual([{ value: 'vanguard', count: 5 }])
+    })
+
+    it('uses the app kinds for the kind counts', async () => {
+      fetchMock.mockResolvedValue(
+        jsonResponse([
+          { value: 'equity', count: 378 },
+          { value: 'etf', count: 456 },
+        ]),
+      )
+
+      expect(await api.getFacetCounts('kind')).toEqual([
+        { value: 'share', count: 378 },
+        { value: 'etf', count: 456 },
+      ])
     })
   })
 
   describe('getFlagCount', () => {
+    // A new response for each call, because a response body can only be read once.
     beforeEach(() => {
-      fetchMock.mockResolvedValue(jsonResponse([]))
+      fetchMock.mockImplementation(() => Promise.resolve(jsonResponse([])))
     })
 
     it('POSTs the text and filters to the facet for the flag, with the API name', async () => {
@@ -247,8 +352,11 @@ describe('useSearchApi', () => {
 
     it('uses the API name for every flag', async () => {
       await api.getFlagCount('isFlagshipFund')
-
       expect(lastCall().url).toBe('/api/facets/is_flagship_fund')
+
+      fetchMock.mockClear()
+      await api.getFlagCount('isAutoInvestIncluded')
+      expect(lastCall().url).toBe('/api/facets/is_auto_invest_included')
     })
 
     it('returns how many results have the flag on', async () => {

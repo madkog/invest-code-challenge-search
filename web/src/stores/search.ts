@@ -14,6 +14,7 @@ import type {
 } from '../types/search'
 
 const DEFAULT_PAGE_SIZE = 15
+const SUGGESTION_SIZE = 5
 export const SEARCH_STATUS = Object.freeze({
   IDLE: 'idle',
   LOADING: 'loading',
@@ -23,7 +24,13 @@ export const SEARCH_STATUS = Object.freeze({
 export type SearchStatus = (typeof SEARCH_STATUS)[keyof typeof SEARCH_STATUS]
 
 function createEmptyFilters(): Filters {
-  return { kind: [], issuer: [], isBetashares: null, isFlagshipFund: null }
+  return {
+    kind: [],
+    issuer: [],
+    isBetashares: null,
+    isFlagshipFund: null,
+    isAutoInvestIncluded: null,
+  }
 }
 
 function getMessage(caught: unknown): string {
@@ -53,6 +60,8 @@ export const useSearchStore = defineStore('search', () => {
   const status = ref<SearchStatus>(SEARCH_STATUS.IDLE)
   const error = ref<string | null>(null)
   const suggestions = ref<Suggestion[]>([])
+  const suggestionKinds = ref<FacetCount[]>([]) // ETF and share counts for the typed text
+  const flagshipFunds = ref<Suggestion[]>([]) // suggested when the box is empty
   const facets = ref<Partial<Record<FacetKey, FacetCount[]>>>({}) // facet key -> counts
   const flagCounts = ref<Partial<Record<FlagKey, number>>>({}) // yes/no filter -> count
 
@@ -132,6 +141,12 @@ export const useSearchStore = defineStore('search', () => {
     return search()
   }
 
+  function setPageSize(size: number) {
+    pageSize.value = size
+    page.value = 1
+    return search()
+  }
+
   // A failed suggestion request shows no suggestions instead of an error, because they are optional.
   async function loadSuggestions(text: string) {
     if (!text.trim()) {
@@ -144,16 +159,35 @@ export const useSearchStore = defineStore('search', () => {
     suggestionsController = controller
 
     try {
-      const response = await api.getSuggestions(text, { signal: controller.signal })
-      if (!controller.signal.aborted) suggestions.value = response.results
+      const { signal } = controller
+      // The matching instruments and the ETF and share counts are requested together.
+      const [matches, kinds] = await Promise.all([
+        api.getSuggestions(text, { size: SUGGESTION_SIZE, signal }),
+        api.getFacetCounts('kind', { text }, { omitEmptyCounts: true, signal }),
+      ])
+      if (signal.aborted) return
+      suggestions.value = matches.results
+      suggestionKinds.value = kinds
     } catch {
-      if (!controller.signal.aborted) suggestions.value = []
+      if (controller.signal.aborted) return
+      suggestions.value = []
+      suggestionKinds.value = []
     }
   }
 
   function clearSuggestions() {
     suggestionsController?.abort()
     suggestions.value = []
+    suggestionKinds.value = []
+  }
+
+  // Not being able to load these just leaves that group out.
+  async function loadFlagshipFunds() {
+    try {
+      flagshipFunds.value = (await api.getFlagshipFunds()).results
+    } catch {
+      flagshipFunds.value = []
+    }
   }
 
   async function loadFacet(key: FacetKey) {
@@ -197,6 +231,8 @@ export const useSearchStore = defineStore('search', () => {
     status,
     error,
     suggestions,
+    suggestionKinds,
+    flagshipFunds,
     facets,
     flagCounts,
     totalPages,
@@ -207,8 +243,10 @@ export const useSearchStore = defineStore('search', () => {
     clearFilters,
     setSort,
     setPage,
+    setPageSize,
     loadSuggestions,
     clearSuggestions,
+    loadFlagshipFunds,
     loadFacet,
     loadFlagCount,
   }

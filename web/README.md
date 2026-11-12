@@ -57,13 +57,17 @@ _Update this to match the final folders._
 
 ```
 src/
-  composables/  # API composable, debounce, keyboard handling
-  utils/        # HTTP client
+  composables/  # API composable, delayed loading flag
+  utils/        # HTTP client, text and colour helpers
   stores/       # Pinia search store
-  pages/        # SearchPage
-  theme/        # PrimeVue preset
+  pages/search/ # SearchPage and everything only it uses
+    components/   # result row, filter panel, toolbar, popular searches, SearchBox/
+    composables/  # recent searches
+    utils/        # formatting and sort options
+    config.ts     # popular searches, issuer names, loading delay
+  theme/        # PrimeVue preset and global styles
   types/        # shared types
-  components/   # generic building blocks and search components
+  components/   # generic building blocks
   App.vue
 ```
 
@@ -85,10 +89,10 @@ The app is built layer by layer, from the data upward, and each layer ships with
 Notes I made while building each layer.
 
 1. **API composable.** Used the base search call with a filter for suggestions. Thought about caching but left it for the moment as the data is in memory. May refactor once implementing, but fine for starters. The composable takes the app's own params (`text`, `filters`, `sort`, `page`, `size`) and builds the API request body itself, so the store never sees `search_text` or `{ value }` booleans. I first had a separate filter helper that the store used, then moved it into the composable so only one file knows the request format. It also maps responses to the app's own types (`Instrument`, `Sort`, camelCase names), so no API field name such as `display_name` or `is_betashares` exists outside it. That includes the yes/no filters (such as Betashares funds), where the API sends counts for the text "true" and "false" and the composable returns just the count with the filter on.
-2. **Pinia store.** Started with watchers and `onWatcherCleanup` (Vue's built-in cancellation), then chose explicit actions with a plain `AbortController` per kind of request. The actions are easier to trace and test, because each one visibly sends its request and returns a promise. Hand-written cancel logic is a few lines, so I did not add a library such as Vue Query. I also tested the store by hand in the browser console against the running mock API: search, query, filters (including `is_betashares: false`), sort, paging, the 400 error and recovery, suggestions and facets. Request cancellation is covered by the unit tests.
-3. **Search page.** Only a layout skeleton for now: a heading, empty regions for the search input, filters and results (filled in steps 4 and 5), and a temporary status line wired to the store. Added PrimeVue with the default Aura theme so it can be seen working, with dark mode off. Converted everything to TypeScript so the page, store and API share types.
-4. **Generic components.** Built from a design worked out using the Claude design skill. They take props and emit events, and none touch the store. Built so far: search input with grouped suggestions, highlighted text, avatar badge, result list, loading skeleton, empty and error states, pagination bar, sort select, and the filter pieces (segmented, multi-select, checkbox, radio, filter group, active chips). The supplied PrimeVue theme is now applied, with fonts from Google Fonts and dark mode following the OS. Two small differences from the mockup: the pagination bar stays visible when the page size is larger than the total, so the size can be changed back, and the "Any" radio uses an internal value because PrimeVue never shows an empty value as selected. The components are not on the page yet, and the instrument-specific ones (result row, filter panel, details drawer) belong to step 5.
-5. **Component implementations.** _No comments yet._
+2. **Pinia store.** Started with watchers and `onWatcherCleanup` (Vue's built-in cancellation), then chose explicit actions with a plain `AbortController` per kind of request. The actions are easier to trace and test, because each one visibly sends its request and returns a promise. Hand-written cancel logic is a few lines, so I did not add a library such as Vue Query. I also tested the store by hand in the browser console against the running mock API: search, query, filters (including `is_betashares: false`), sort, paging, the 400 error and recovery, suggestions and facets. Request cancellation is covered by the unit tests. I kept it as a Pinia store rather than a composable so the search state survives leaving the page, for example when a details page returns to the same results.
+3. **Search page.** Only a layout skeleton for now: a heading, empty regions for the search input, filters and results (filled in steps 4 and 5), and a temporary status line wired to the store. Added PrimeVue with the default Aura theme so it can be seen working, with dark mode off at first. Converted everything to TypeScript so the page, store and API share types.
+4. **Generic components.** Built from a design worked out using the Claude design skill. They take props and emit events, and none touch the store. Built so far: search input with grouped suggestions, highlighted text, avatar badge, result list, loading skeleton, empty and error states, pagination bar, sort select, and the filter pieces (segmented, multi-select, checkbox, radio, filter group, active chips). The supplied PrimeVue theme is now applied, with fonts from Google Fonts and dark mode following the OS. Two small differences from the mockup: the pagination bar stays visible when the page size is larger than the total, so the size can be changed back, and the "Any" radio uses an internal value because PrimeVue never shows an empty value as selected. The instrument-specific ones (result row, filter panel) are built in step 5, which also puts all of these on the page.
+5. **Component implementations.** The search-specific pieces (search box, result row, filter panel, results toolbar, popular searches) live with the page in `pages/search/`, built on the generic components and fed by the page, which is the only place that uses the store. Anything only the search page uses sits beside it, and only generic code stays shared. Results change only when a search is submitted, and recent searches (kept in localStorage) are separate from URL state. Left out for now: the details drawer, the shares-on-issue filter and URL state. Checked against the running mock API as well as with unit tests.
 6. **Theming.** _No comments yet._
 7. **Storybook.** _No comments yet._
 8. **Playwright.** _No comments yet._

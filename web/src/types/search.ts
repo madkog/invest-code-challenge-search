@@ -3,11 +3,14 @@
  * Only useSearchApi translates between the two.
  */
 
+// ETFs and shares. The API calls shares "equity", and only useSearchApi knows that.
+export type Kind = 'etf' | 'share'
+
 export interface Instrument {
   id: string
   symbol: string
   name: string
-  kind: string
+  kind: Kind
   currency: string
   logoUrl: string | null
   issuer: string | null
@@ -19,24 +22,25 @@ export interface Instrument {
 }
 
 // The light result used for suggestions.
-export type Suggestion = Pick<Instrument, 'symbol' | 'name'>
+export type Suggestion = Pick<Instrument, 'symbol' | 'name' | 'kind' | 'issuer'>
 
 // The filters the user has chosen.
 export interface Filters {
-  kind: string[]
+  kind: Kind[]
   issuer: string[]
   // null means the user has not chosen.
   isBetashares: boolean | null
   isFlagshipFund: boolean | null
+  isAutoInvestIncluded: boolean | null
 }
 
 // A filter that has options with counts.
 export type FacetKey = 'kind' | 'issuer'
 
 // A yes/no filter. Its count is how many results have it switched on.
-export type FlagKey = 'isBetashares' | 'isFlagshipFund'
+export type FlagKey = 'isBetashares' | 'isFlagshipFund' | 'isAutoInvestIncluded'
 
-export type SortField = 'symbol' | 'name'
+export type SortField = 'symbol' | 'name' | 'unitsCirculating'
 
 export interface Sort {
   field: SortField
@@ -46,7 +50,7 @@ export interface Sort {
 // What the app asks for. Everything is optional.
 export interface SearchParams {
   text?: string
-  filters?: Filters
+  filters?: Partial<Filters>
   // null or undefined means ranked by relevance.
   sort?: Sort | null
   // Page number, starting at 1.

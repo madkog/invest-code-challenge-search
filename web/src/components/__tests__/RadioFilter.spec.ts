@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
 
 import RadioFilter from '../RadioFilter.vue'
-import { withPrimeVue } from './primeVue'
+import { withPrimeVue } from '@/__tests__/primeVue'
 
 const options = [
   { value: '0,100', label: 'Under 100m', count: 5 },

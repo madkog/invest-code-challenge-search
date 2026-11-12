@@ -3,7 +3,7 @@ import { mount } from '@vue/test-utils'
 import MultiSelect from 'primevue/multiselect'
 
 import MultiSelectFilter from '../MultiSelectFilter.vue'
-import { withPrimeVue } from './primeVue'
+import { withPrimeVue } from '@/__tests__/primeVue'
 
 const options = [
   { value: 'betashares', label: 'Betashares', count: 22 },

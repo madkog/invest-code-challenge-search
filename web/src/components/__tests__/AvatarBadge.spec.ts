@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
 
 import AvatarBadge from '../AvatarBadge.vue'
-import { withPrimeVue } from './primeVue'
+import { withPrimeVue } from '@/__tests__/primeVue'
 
 function mountBadge(props: Record<string, unknown>) {
   return mount(AvatarBadge, { props: { label: 'A200', ...props }, global: withPrimeVue })

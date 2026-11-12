@@ -3,7 +3,7 @@ import { mount } from '@vue/test-utils'
 import Select from 'primevue/select'
 
 import SortSelect from '../SortSelect.vue'
-import { withPrimeVue } from './primeVue'
+import { withPrimeVue } from '@/__tests__/primeVue'
 
 const options = [
   { value: '', label: 'Best match' },

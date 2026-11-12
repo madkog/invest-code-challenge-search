@@ -3,7 +3,7 @@ import { mount } from '@vue/test-utils'
 import Paginator from 'primevue/paginator'
 
 import PaginationBar from '../PaginationBar.vue'
-import { withPrimeVue } from './primeVue'
+import { withPrimeVue } from '@/__tests__/primeVue'
 
 function mountBar(props: { page: number; pageSize: number; total: number }) {
   return mount(PaginationBar, { props, global: withPrimeVue })

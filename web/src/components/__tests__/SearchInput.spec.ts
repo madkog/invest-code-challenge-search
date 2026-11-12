@@ -4,7 +4,7 @@ import AutoComplete from 'primevue/autocomplete'
 
 import SearchInput from '../SearchInput.vue'
 import type { SuggestionGroup } from '../../types/ui'
-import { withPrimeVue } from './primeVue'
+import { withPrimeVue } from '@/__tests__/primeVue'
 
 const groups: SuggestionGroup[] = [
   {

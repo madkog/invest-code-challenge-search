@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
 
 import CheckboxFilter from '../CheckboxFilter.vue'
-import { withPrimeVue } from './primeVue'
+import { withPrimeVue } from '@/__tests__/primeVue'
 
 function mountFilter(props: { modelValue: boolean; count?: number }) {
   return mount(CheckboxFilter, {

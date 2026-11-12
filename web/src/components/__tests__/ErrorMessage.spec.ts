@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
 
 import ErrorMessage from '../ErrorMessage.vue'
-import { withPrimeVue } from './primeVue'
+import { withPrimeVue } from '@/__tests__/primeVue'
 
 describe('ErrorMessage', () => {
   it('shows the title and the detail', () => {

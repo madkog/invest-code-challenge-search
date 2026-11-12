@@ -53,9 +53,16 @@ const labelId = useId()
 }
 
 :deep(.p-togglebutton) {
-  flex: 1;
-  padding-inline: 8px;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding-inline: 6px;
   font-size: 13px;
   white-space: nowrap;
+}
+
+:deep(.p-togglebutton-content) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 </style>

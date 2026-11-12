@@ -6,13 +6,20 @@ import { useSearchStore } from '../search'
 const api = vi.hoisted(() => ({
   search: vi.fn(),
   getSuggestions: vi.fn(),
+  getFlagshipFunds: vi.fn(),
   getFacetCounts: vi.fn(),
   getFlagCount: vi.fn(),
 }))
 
 vi.mock('../../composables/useSearchApi', () => ({ useSearchApi: () => api }))
 
-const noFilters = { kind: [], issuer: [], isBetashares: null, isFlagshipFund: null }
+const noFilters = {
+  kind: [],
+  issuer: [],
+  isBetashares: null,
+  isFlagshipFund: null,
+  isAutoInvestIncluded: null,
+}
 const SYMBOL_ASC = { field: 'symbol', direction: 'asc' } as const
 
 const A200 = { symbol: 'A200', name: 'Betashares Australia 200 ETF' }
@@ -51,6 +58,7 @@ describe('search store', () => {
     api.getSuggestions.mockResolvedValue({ results: [A200] })
     api.getFacetCounts.mockResolvedValue([])
     api.getFlagCount.mockResolvedValue(0)
+    api.getFlagshipFunds.mockResolvedValue({ results: [A200], count: 1 })
     setActivePinia(createPinia())
     store = useSearchStore()
   })
@@ -68,6 +76,7 @@ describe('search store', () => {
         issuer: [],
         isBetashares: null,
         isFlagshipFund: null,
+        isAutoInvestIncluded: null,
       })
       expect(store.sortBy).toBeNull()
       expect(store.page).toBe(1)
@@ -167,6 +176,15 @@ describe('search store', () => {
       await store.setSort(SYMBOL_ASC)
 
       expect(lastSearchQuery()).toMatchObject({ sort: SYMBOL_ASC })
+    })
+
+    it('setPageSize sends the size and goes back to the first page', async () => {
+      await store.setPage(3)
+
+      await store.setPageSize(30)
+
+      expect(store.pageSize).toBe(30)
+      expect(lastSearchQuery()).toMatchObject({ page: 1, size: 30 })
     })
 
     it('setPage sends the 1-based page', async () => {
@@ -281,8 +299,30 @@ describe('search store', () => {
     it('loads suggestions for the text', async () => {
       await store.loadSuggestions('a200')
 
-      expect(api.getSuggestions).toHaveBeenCalledWith('a200', { signal: expect.any(AbortSignal) })
+      expect(api.getSuggestions).toHaveBeenCalledWith('a200', {
+        size: 5,
+        signal: expect.any(AbortSignal),
+      })
       expect(store.suggestions).toEqual([A200])
+    })
+
+    it('also loads the ETF and share counts for the text', async () => {
+      api.getFacetCounts.mockResolvedValue([
+        { value: 'etf', count: 8 },
+        { value: 'share', count: 3 },
+      ])
+
+      await store.loadSuggestions('bank')
+
+      expect(api.getFacetCounts).toHaveBeenCalledWith(
+        'kind',
+        { text: 'bank' },
+        { omitEmptyCounts: true, signal: expect.any(AbortSignal) },
+      )
+      expect(store.suggestionKinds).toEqual([
+        { value: 'etf', count: 8 },
+        { value: 'share', count: 3 },
+      ])
     })
 
     it('does not touch the search results or status', async () => {
@@ -299,6 +339,7 @@ describe('search store', () => {
 
       expect(api.getSuggestions).toHaveBeenCalledTimes(1)
       expect(store.suggestions).toEqual([])
+      expect(store.suggestionKinds).toEqual([])
     })
 
     it('shows no suggestions when the request fails, without setting an error', async () => {
@@ -308,6 +349,7 @@ describe('search store', () => {
       await store.loadSuggestions('a2')
 
       expect(store.suggestions).toEqual([])
+      expect(store.suggestionKinds).toEqual([])
       expect(store.error).toBeNull()
       expect(store.status).toBe('idle')
     })
@@ -337,6 +379,23 @@ describe('search store', () => {
       await done
 
       expect(store.suggestions).toEqual([])
+    })
+  })
+
+  describe('flagship funds', () => {
+    it('loads the flagship funds', async () => {
+      await store.loadFlagshipFunds()
+
+      expect(store.flagshipFunds).toEqual([A200])
+    })
+
+    it('shows none when the request fails, without setting an error', async () => {
+      api.getFlagshipFunds.mockRejectedValue(new Error('Failed'))
+
+      await store.loadFlagshipFunds()
+
+      expect(store.flagshipFunds).toEqual([])
+      expect(store.error).toBeNull()
     })
   })
 

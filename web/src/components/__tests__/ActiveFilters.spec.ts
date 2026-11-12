@@ -3,7 +3,7 @@ import { mount } from '@vue/test-utils'
 import Chip from 'primevue/chip'
 
 import ActiveFilters from '../ActiveFilters.vue'
-import { withPrimeVue } from './primeVue'
+import { withPrimeVue } from '@/__tests__/primeVue'
 
 const chips = [
   { key: 'kind', label: 'ETFs' },

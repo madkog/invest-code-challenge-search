@@ -1,7 +1,7 @@
 import type { GlobalMountOptions } from '@vue/test-utils'
 import PrimeVue from 'primevue/config'
 
-import preset from '../../theme/preset'
+import preset from '../theme/preset'
 
 // jsdom has no matchMedia, which some PrimeVue components call when they mount.
 if (typeof (globalThis as { matchMedia?: unknown }).matchMedia !== 'function') {

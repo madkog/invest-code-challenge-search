@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
 
 import ListSkeleton from '../ListSkeleton.vue'
-import { withPrimeVue } from './primeVue'
+import { withPrimeVue } from '@/__tests__/primeVue'
 
 describe('ListSkeleton', () => {
   it('shows 6 placeholder rows by default', () => {
