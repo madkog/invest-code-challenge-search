@@ -61,6 +61,12 @@ const LIGHT: Pair[] = [
     background: white,
     minimum: GRAPHIC,
   },
+  {
+    name: 'avatar initials',
+    foreground: white,
+    background: stone[500],
+    minimum: TEXT,
+  },
   // Counts and notes sit on tinted backgrounds: toggle buttons, and hovered or focused options.
   {
     name: 'counts on a toggle button',

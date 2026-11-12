@@ -16,24 +16,11 @@ describe('AvatarBadge', () => {
     expect(wrapper.find('img').exists()).toBe(false)
   })
 
-  it('uses the colour as the background', () => {
-    const wrapper = mountBadge({ colour: '#FFCC00' })
+  it('shows the letters in white on the theme grey', () => {
+    const style = mountBadge({}).attributes('style')
 
-    expect(wrapper.attributes('style')).toContain('rgb(255, 204, 0)')
-  })
-
-  it('picks readable text for the background', () => {
-    const light = mountBadge({ colour: '#FFCC00' })
-    const dark = mountBadge({ colour: '#1A1A1A' })
-
-    expect(light.attributes('style')).toContain('rgb(28, 25, 23)')
-    expect(dark.attributes('style')).toContain('rgb(255, 255, 255)')
-  })
-
-  it('uses a neutral background when there is no colour', () => {
-    const wrapper = mountBadge({})
-
-    expect(wrapper.attributes('style')).toContain('rgb(120, 113, 108)')
+    expect(style).toContain('var(--p-surface-500)')
+    expect(style).toContain('var(--p-surface-0)')
   })
 
   it('shows the image when there is one', () => {

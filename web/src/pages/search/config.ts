@@ -30,7 +30,5 @@ export const FLAG_FILTERS: { key: FlagKey; label: string }[] = [
   { key: 'isAutoInvestIncluded', label: 'In Auto Invest' },
 ]
 
-export const PAGE_SIZE_OPTIONS = [15, 30, 50]
-
 // Skeleton rows only appear if loading takes longer than this, so quick searches don't flicker.
 export const LOADING_DELAY_MS = 120

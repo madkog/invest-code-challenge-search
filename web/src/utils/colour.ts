@@ -32,23 +32,3 @@ export function contrastRatio(first: string, second: string): number | null {
   if (!firstRgb || !secondRgb) return null
   return contrast(luminance(firstRgb), luminance(secondRgb))
 }
-
-/**
- * Picks the light or dark text colour that reads best on the background colour.
- * Falls back to the dark colour when the background is not a hex colour.
- */
-export function readableTextColour(
-  background: string,
-  light = '#FFFFFF',
-  dark = '#1C1917',
-): string {
-  const backgroundRgb = parseHex(background)
-  const lightRgb = parseHex(light)
-  const darkRgb = parseHex(dark)
-  if (!backgroundRgb || !lightRgb || !darkRgb) return dark
-
-  const backgroundLuminance = luminance(backgroundRgb)
-  const onLight = contrast(backgroundLuminance, luminance(lightRgb))
-  const onDark = contrast(backgroundLuminance, luminance(darkRgb))
-  return onLight >= onDark ? light : dark
-}

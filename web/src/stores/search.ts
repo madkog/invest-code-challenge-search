@@ -44,10 +44,6 @@ function createEmptyFilters(): Filters {
   }
 }
 
-function getMessage(caught: unknown): string {
-  return caught instanceof Error ? caught.message : String(caught)
-}
-
 /**
  * Shared search state: query, filters, sort, page, results and status.
  * Only the search page uses this store. It calls the API composable and nothing else.
@@ -70,7 +66,6 @@ export const useSearchStore = defineStore('search', () => {
   const results = ref<Instrument[]>([])
   const count = ref(0)
   const status = ref<SearchStatus>(SEARCH_STATUS.IDLE)
-  const error = ref<string | null>(null)
   const suggestions = ref<Suggestion[]>([])
   const suggestionKinds = ref<FacetCount[]>([]) // ETF and share counts for the typed text
   const flagshipFunds = ref<Suggestion[]>([]) // suggested when the box is empty
@@ -100,7 +95,6 @@ export const useSearchStore = defineStore('search', () => {
     const request = requests.start('search')
 
     status.value = SEARCH_STATUS.LOADING
-    error.value = null
 
     try {
       const response = await api.search(searchParams.value, { signal: request.signal })
@@ -113,7 +107,6 @@ export const useSearchStore = defineStore('search', () => {
       logError('Search failed', caught, { params: searchParams.value })
       results.value = []
       count.value = 0
-      error.value = getMessage(caught)
       status.value = SEARCH_STATUS.ERROR
     }
   }
@@ -262,7 +255,6 @@ export const useSearchStore = defineStore('search', () => {
     results,
     count,
     status,
-    error,
     suggestions,
     suggestionKinds,
     flagshipFunds,

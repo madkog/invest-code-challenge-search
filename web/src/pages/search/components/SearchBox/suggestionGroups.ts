@@ -38,64 +38,73 @@ function termOptions(
   })
 }
 
+// ETFs show their issuer, shares just say they are a share.
+function itemMeta(item: Suggestion): string {
+  if (item.kind === 'share') return kindLabel('share')
+  if (item.issuer) return issuerName(item.issuer)
+  return kindLabel('etf')
+}
+
 function itemOption(item: Suggestion, actions: Map<string, SuggestionAction>): SuggestionOption {
   const key = `item:${item.symbol}`
   actions.set(key, { type: 'item', id: item.id, name: item.name })
-  const meta =
-    item.kind === 'etf'
-      ? item.issuer
-        ? issuerName(item.issuer)
-        : kindLabel('etf')
-      : kindLabel('share')
-  return { key, label: item.name, icon: 'item', badge: item.symbol, meta }
+  return { key, label: item.name, icon: 'item', badge: item.symbol, meta: itemMeta(item) }
 }
 
-/**
- * Builds the suggestion dropdown. With nothing typed it offers recent and popular searches and
- * flagship funds. With text typed it offers searching for the text (all, or only ETFs or shares),
- * the matching ETFs and shares, and popular searches that contain the text.
- */
-export function buildSuggestionGroups(input: SuggestionInput): SuggestionModel {
-  const actions = new Map<string, SuggestionAction>()
-  const groups: SuggestionGroup[] = []
-  const text = input.text.trim()
+// Searching for the text, in everything or in only ETFs or only shares.
+function scopeOption(
+  text: string,
+  kind: Kind | null,
+  count: number,
+  actions: Map<string, SuggestionAction>,
+): SuggestionOption {
+  const key = `scope:${kind ?? 'all'}`
+  actions.set(key, kind ? { type: 'search', text, kind } : { type: 'search', text })
+  return kind
+    ? { key, label: `${text} in ${kindPluralLabel(kind)}`, icon: 'search', meta: String(count) }
+    : { key, label: text, icon: 'search', meta: `All results · ${count}` }
+}
 
-  if (!text) {
-    if (input.recent.length) {
-      groups.push({
-        title: 'Recent searches',
-        items: termOptions(input.recent.slice(0, RECENT_SHOWN), 'recent', actions),
-      })
-    }
+// With nothing typed: recent and popular searches, and flagship funds.
+function emptyBoxGroups(input: SuggestionInput, actions: Map<string, SuggestionAction>) {
+  const groups: SuggestionGroup[] = []
+  if (input.recent.length) {
     groups.push({
-      title: 'Popular searches',
-      items: termOptions(input.popular.slice(0, POPULAR_SHOWN), 'popular', actions),
+      title: 'Recent searches',
+      items: termOptions(input.recent.slice(0, RECENT_SHOWN), 'recent', actions),
     })
-    if (input.flagshipFunds.length) {
-      groups.push({
-        title: 'Flagship funds',
-        items: input.flagshipFunds.map((fund) => itemOption(fund, actions)),
-      })
-    }
-    return { groups, actions }
   }
+  groups.push({
+    title: 'Popular searches',
+    items: termOptions(input.popular.slice(0, POPULAR_SHOWN), 'popular', actions),
+  })
+  if (input.flagshipFunds.length) {
+    groups.push({
+      title: 'Flagship funds',
+      items: input.flagshipFunds.map((fund) => itemOption(fund, actions)),
+    })
+  }
+  return groups
+}
+
+// With text typed: search for it (all, or only ETFs or shares), the matching ETFs and shares,
+// and popular searches that contain it.
+function typedTextGroups(
+  text: string,
+  input: SuggestionInput,
+  actions: Map<string, SuggestionAction>,
+) {
+  const groups: SuggestionGroup[] = []
 
   const total = input.kinds.reduce((sum, entry) => sum + entry.count, 0)
   if (total > 0) {
-    const items: SuggestionOption[] = [
-      { key: 'scope:all', label: text, icon: 'search', meta: `All results · ${total}` },
-      ...input.kinds.map((entry) => ({
-        key: `scope:${entry.value}`,
-        label: `${text} in ${kindPluralLabel(entry.value as Kind)}`,
-        icon: 'search' as const,
-        meta: String(entry.count),
-      })),
-    ]
-    actions.set('scope:all', { type: 'search', text })
-    for (const entry of input.kinds) {
-      actions.set(`scope:${entry.value}`, { type: 'search', text, kind: entry.value as Kind })
-    }
-    groups.push({ title: 'Search for', items })
+    groups.push({
+      title: 'Search for',
+      items: [
+        scopeOption(text, null, total, actions),
+        ...input.kinds.map((entry) => scopeOption(text, entry.value as Kind, entry.count, actions)),
+      ],
+    })
   }
 
   if (input.instruments.length) {
@@ -116,5 +125,15 @@ export function buildSuggestionGroups(input: SuggestionInput): SuggestionModel {
     })
   }
 
+  return groups
+}
+
+/**
+ * Builds the suggestion dropdown, and the action for each suggestion.
+ */
+export function buildSuggestionGroups(input: SuggestionInput): SuggestionModel {
+  const actions = new Map<string, SuggestionAction>()
+  const text = input.text.trim()
+  const groups = text ? typedTextGroups(text, input, actions) : emptyBoxGroups(input, actions)
   return { groups, actions }
 }

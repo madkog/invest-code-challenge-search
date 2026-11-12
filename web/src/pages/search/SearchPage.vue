@@ -64,7 +64,11 @@ const showSkeleton = useDelayedFlag(() => isLoading.value, LOADING_DELAY_MS)
 
 const terms = computed(() => searchTerms(query.value))
 // Only shares have shares on issue, so with ETFs only that sort has nothing to sort by.
-const etfsOnly = computed(() => filters.value.kind.length === 1 && filters.value.kind[0] === 'etf')
+function isEtfsOnly(kinds: Kind[]): boolean {
+  return kinds.length === 1 && kinds[0] === 'etf'
+}
+
+const etfsOnly = computed(() => isEtfsOnly(filters.value.kind))
 const sortOptions = computed(() => buildSortOptions(Boolean(query.value), etfsOnly.value))
 const sortId = computed(() => sortToId(sortBy.value))
 
@@ -98,8 +102,7 @@ function updateSearch(change: () => void) {
 // Choosing ETFs only while sorted by shares on issue goes back to the default order, because ETFs
 // have none.
 function setKindFilter(kinds: Kind[]) {
-  const onlyEtfs = kinds.length === 1 && kinds[0] === 'etf'
-  if (onlyEtfs && sortId.value === 'units-desc') store.setSort(null)
+  if (isEtfsOnly(kinds) && sortId.value === 'units-desc') store.setSort(null)
   store.setFilter('kind', kinds)
 }
 
@@ -329,12 +332,8 @@ onMounted(() => {
   padding: 1px 5px;
   font: 500 13px var(--f-mono);
   color: var(--p-text-color);
-  background: var(--p-surface-100);
+  background: var(--tint-background);
   border-radius: 4px;
-}
-
-.app-dark .hint code {
-  background: var(--p-surface-800);
 }
 
 .layout {

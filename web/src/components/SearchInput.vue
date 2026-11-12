@@ -225,13 +225,9 @@ function onSubmit(modelValue: string) {
   padding: 1px 6px;
   font: 600 12px var(--f-mono);
   text-align: center;
-  background: var(--p-surface-100);
+  background: var(--tint-background);
   border: 1px solid var(--p-content-border-color);
   border-radius: 6px;
-}
-
-.app-dark .badge {
-  background: var(--p-surface-800);
 }
 
 .meta {

@@ -436,7 +436,6 @@ describe('SearchPage', () => {
   describe('errors', () => {
     beforeEach(async () => {
       store.status = 'error'
-      store.error = 'Bad query'
       await nextTick()
     })
 
@@ -445,7 +444,6 @@ describe('SearchPage', () => {
 
       expect(error.props('title')).toBe('We couldn’t load results.')
       expect(error.props('message')).toBe('Please try again in a moment.')
-      expect(error.text()).not.toContain('Bad query')
       expect(wrapper.getComponent(ResultsToolbar).text()).toContain('Search didn’t finish')
     })
 

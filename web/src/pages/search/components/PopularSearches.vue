@@ -53,20 +53,12 @@ defineEmits<{ pick: [term: string] }>()
    faint on the warm page background. */
 .pill {
   background: var(--p-content-background);
-  border-color: var(--p-surface-400);
+  border-color: var(--pill-border);
 }
 
 .pill:not(:disabled):hover {
   background: var(--p-content-background);
-  border-color: var(--p-surface-600);
-}
-
-.app-dark .pill {
-  border-color: var(--p-surface-600);
-}
-
-.app-dark .pill:not(:disabled):hover {
-  border-color: var(--p-surface-400);
+  border-color: var(--pill-border-hover);
 }
 
 /* On a phone the pills sit in one row that scrolls sideways, with the label on its own line above.

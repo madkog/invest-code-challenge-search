@@ -87,7 +87,6 @@ describe('search store', () => {
       expect(store.results).toEqual([])
       expect(store.count).toBe(0)
       expect(store.status).toBe('idle')
-      expect(store.error).toBeNull()
       expect(api.search).not.toHaveBeenCalled()
     })
   })
@@ -127,14 +126,13 @@ describe('search store', () => {
       expect(store.status).toBe('success')
     })
 
-    it('clears the results and keeps the message when the request fails', async () => {
+    it('clears the results and logs the error when the request fails', async () => {
       await store.search()
       api.search.mockRejectedValue(Object.assign(new Error('Bad query'), { status: 400 }))
 
       await store.search()
 
       expect(store.status).toBe('error')
-      expect(store.error).toBe('Bad query')
       expect(store.results).toEqual([])
       expect(store.count).toBe(0)
       expect(logError).toHaveBeenCalledWith('Search failed', expect.any(Error), {
@@ -142,13 +140,12 @@ describe('search store', () => {
       })
     })
 
-    it('clears an earlier error when it starts again', async () => {
+    it('recovers from an earlier error when it searches again', async () => {
       api.search.mockRejectedValueOnce(new Error('Failed'))
       await store.search()
 
       await store.search()
 
-      expect(store.error).toBeNull()
       expect(store.status).toBe('success')
     })
   })
@@ -286,7 +283,6 @@ describe('search store', () => {
       await firstDone
 
       expect(store.status).toBe('loading')
-      expect(store.error).toBeNull()
       expect(logError).not.toHaveBeenCalled()
 
       second.resolve(searchResponse())
@@ -339,7 +335,7 @@ describe('search store', () => {
       expect(store.suggestionKinds).toEqual([])
     })
 
-    it('shows no suggestions when the request fails, without setting an error', async () => {
+    it('shows no suggestions when the request fails, without failing the search', async () => {
       await store.loadSuggestions('a200')
       api.getSuggestions.mockRejectedValue(new Error('Failed'))
 
@@ -347,7 +343,6 @@ describe('search store', () => {
 
       expect(store.suggestions).toEqual([])
       expect(store.suggestionKinds).toEqual([])
-      expect(store.error).toBeNull()
       expect(store.status).toBe('idle')
       expect(logError).toHaveBeenCalledWith('Loading suggestions failed', expect.any(Error), {
         text: 'a2',
@@ -389,13 +384,12 @@ describe('search store', () => {
       expect(store.flagshipFunds).toEqual([A200])
     })
 
-    it('shows none when the request fails, without setting an error', async () => {
+    it('shows none when the request fails, without failing the search', async () => {
       api.getFlagshipFunds.mockRejectedValue(new Error('Failed'))
 
       await store.loadFlagshipFunds()
 
       expect(store.flagshipFunds).toEqual([])
-      expect(store.error).toBeNull()
       expect(logError).toHaveBeenCalledWith('Loading flagship funds failed', expect.any(Error))
     })
   })

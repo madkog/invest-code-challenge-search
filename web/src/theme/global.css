@@ -13,12 +13,22 @@
 
   /* The page behind the content: Betashares' warm light grey. Cards stay white on top of it. */
   --page-background: #eeeae6;
+
+  /* A light tint for small highlighted areas, such as ticker badges, code and hovered rows. */
+  --tint-background: var(--p-surface-100);
+
+  /* The border of a popular search pill, and on hover. */
+  --pill-border: var(--p-surface-400);
+  --pill-border-hover: var(--p-surface-600);
 }
 
 .app-dark {
   color-scheme: dark;
   --subtle-text: var(--p-surface-300);
   --page-background: var(--p-surface-950, #0c0a09);
+  --tint-background: var(--p-surface-800);
+  --pill-border: var(--p-surface-600);
+  --pill-border-hover: var(--p-surface-400);
 }
 
 body {
