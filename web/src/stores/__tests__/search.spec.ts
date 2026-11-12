@@ -7,16 +7,18 @@ const api = vi.hoisted(() => ({
   search: vi.fn(),
   getSuggestions: vi.fn(),
   getFacetCounts: vi.fn(),
+  getFlagCount: vi.fn(),
 }))
 
 vi.mock('../../composables/useSearchApi', () => ({ useSearchApi: () => api }))
 
-const noFilters = { kind: [], issuer: [], is_betashares: null, is_flagship_fund: null }
+const noFilters = { kind: [], issuer: [], isBetashares: null, isFlagshipFund: null }
+const SYMBOL_ASC = { field: 'symbol', direction: 'asc' } as const
 
-const A200 = { symbol: 'A200', display_name: 'Betashares Australia 200 ETF' }
+const A200 = { symbol: 'A200', name: 'Betashares Australia 200 ETF' }
 
 function searchResponse(results: object[] = [A200], count = results.length) {
-  return { results, count, indexed_at: 1 }
+  return { results, count }
 }
 
 // A promise the test resolves or rejects by hand, to control the order responses arrive in.
@@ -48,6 +50,7 @@ describe('search store', () => {
     api.search.mockResolvedValue(searchResponse())
     api.getSuggestions.mockResolvedValue({ results: [A200] })
     api.getFacetCounts.mockResolvedValue([])
+    api.getFlagCount.mockResolvedValue(0)
     setActivePinia(createPinia())
     store = useSearchStore()
   })
@@ -63,10 +66,10 @@ describe('search store', () => {
       expect(store.filters).toEqual({
         kind: [],
         issuer: [],
-        is_betashares: null,
-        is_flagship_fund: null,
+        isBetashares: null,
+        isFlagshipFund: null,
       })
-      expect(store.sortBy).toBe('')
+      expect(store.sortBy).toBeNull()
       expect(store.page).toBe(1)
       expect(store.results).toEqual([])
       expect(store.count).toBe(0)
@@ -83,7 +86,7 @@ describe('search store', () => {
       expect(lastSearchQuery()).toEqual({
         text: '',
         filters: noFilters,
-        sort: '',
+        sort: null,
         page: 1,
         size: 15,
       })
@@ -152,18 +155,18 @@ describe('search store', () => {
     })
 
     it('setFilter keeps a false boolean', async () => {
-      await store.setFilter('is_betashares', true)
-      await store.setFilter('is_flagship_fund', false)
+      await store.setFilter('isBetashares', true)
+      await store.setFilter('isFlagshipFund', false)
 
       expect(lastSearchQuery()).toMatchObject({
-        filters: { is_betashares: true, is_flagship_fund: false },
+        filters: { isBetashares: true, isFlagshipFund: false },
       })
     })
 
     it('setSort sends the sort', async () => {
-      await store.setSort('symbol.asc')
+      await store.setSort(SYMBOL_ASC)
 
-      expect(lastSearchQuery()).toMatchObject({ sort: 'symbol.asc' })
+      expect(lastSearchQuery()).toMatchObject({ sort: SYMBOL_ASC })
     })
 
     it('setPage sends the 1-based page', async () => {
@@ -176,7 +179,7 @@ describe('search store', () => {
     it.each([
       ['setQuery', () => store.setQuery('vas')],
       ['setFilter', () => store.setFilter('kind', ['etf'])],
-      ['setSort', () => store.setSort('symbol.asc')],
+      ['setSort', () => store.setSort(SYMBOL_ASC)],
       ['clearFilters', () => store.clearFilters()],
     ])('%s goes back to the first page', async (_name, action) => {
       await store.setPage(4)
@@ -189,16 +192,16 @@ describe('search store', () => {
 
     it('clearFilters resets every filter but keeps the query and sort', async () => {
       await store.setQuery('bonds')
-      await store.setSort('symbol.asc')
+      await store.setSort(SYMBOL_ASC)
       await store.setFilter('kind', ['etf'])
-      await store.setFilter('is_betashares', true)
+      await store.setFilter('isBetashares', true)
 
       await store.clearFilters()
 
       expect(lastSearchQuery()).toEqual({
         text: 'bonds',
         filters: noFilters,
-        sort: 'symbol.asc',
+        sort: SYMBOL_ASC,
         page: 1,
         size: 15,
       })
@@ -246,12 +249,12 @@ describe('search store', () => {
       // The first request is slow, so its response arrives after the second one's.
       const firstDone = store.setQuery('va')
       const secondDone = store.setQuery('vas')
-      second.resolve(searchResponse([{ symbol: 'VAS' }]))
+      second.resolve(searchResponse([{ symbol: 'VAS', name: 'Vanguard Australian Shares' }]))
       await secondDone
-      first.resolve(searchResponse([{ symbol: 'VAF' }]))
+      first.resolve(searchResponse([{ symbol: 'VAF', name: 'Vanguard Australian Fixed' }]))
       await firstDone
 
-      expect(store.results).toEqual([{ symbol: 'VAS' }])
+      expect(store.results).toEqual([{ symbol: 'VAS', name: 'Vanguard Australian Shares' }])
       expect(store.status).toBe('success')
     })
 
@@ -316,12 +319,12 @@ describe('search store', () => {
 
       const firstDone = store.loadSuggestions('va')
       const secondDone = store.loadSuggestions('vas')
-      second.resolve({ results: [{ symbol: 'VAS' }] })
+      second.resolve({ results: [{ symbol: 'VAS', name: 'Vanguard Australian Shares' }] })
       await secondDone
-      first.resolve({ results: [{ symbol: 'VAF' }] })
+      first.resolve({ results: [{ symbol: 'VAF', name: 'Vanguard Australian Fixed' }] })
       await firstDone
 
-      expect(store.suggestions).toEqual([{ symbol: 'VAS' }])
+      expect(store.suggestions).toEqual([{ symbol: 'VAS', name: 'Vanguard Australian Shares' }])
     })
 
     it('clearSuggestions empties the list and cancels a pending request', async () => {
@@ -341,15 +344,15 @@ describe('search store', () => {
     it('loads counts for a key using the text and filters, without empty counts', async () => {
       api.getFacetCounts.mockResolvedValue([{ value: 'etf', count: 5 }])
       await store.setQuery('bonds')
-      await store.setFilter('is_betashares', true)
-      await store.setSort('symbol.asc')
+      await store.setFilter('isBetashares', true)
+      await store.setSort(SYMBOL_ASC)
       await store.setPage(2)
 
       await store.loadFacet('kind')
 
       expect(api.getFacetCounts).toHaveBeenCalledWith(
         'kind',
-        { text: 'bonds', filters: { ...noFilters, is_betashares: true } },
+        { text: 'bonds', filters: { ...noFilters, isBetashares: true } },
         { omitEmptyCounts: true, signal: expect.any(AbortSignal) },
       )
       expect(store.facets.kind).toEqual([{ value: 'etf', count: 5 }])
@@ -394,6 +397,57 @@ describe('search store', () => {
       await store.loadFacet('kind')
 
       expect(store.facets.kind).toEqual([])
+      expect(store.status).toBe('idle')
+    })
+  })
+  describe('yes/no filter counts', () => {
+    it('loads the count using the text and filters, but not sort or page', async () => {
+      api.getFlagCount.mockResolvedValue(19)
+      await store.setQuery('bond')
+      await store.setFilter('kind', ['etf'])
+      await store.setSort(SYMBOL_ASC)
+      await store.setPage(2)
+
+      await store.loadFlagCount('isBetashares')
+
+      expect(api.getFlagCount).toHaveBeenCalledWith(
+        'isBetashares',
+        { text: 'bond', filters: { ...noFilters, kind: ['etf'] } },
+        { signal: expect.any(AbortSignal) },
+      )
+      expect(store.flagCounts.isBetashares).toBe(19)
+    })
+
+    it('keeps each flag separate, and apart from the text filter options', async () => {
+      api.getFlagCount.mockResolvedValueOnce(19).mockResolvedValueOnce(9)
+
+      await store.loadFlagCount('isBetashares')
+      await store.loadFlagCount('isFlagshipFund')
+
+      expect(store.flagCounts).toEqual({ isBetashares: 19, isFlagshipFund: 9 })
+      expect(store.facets).toEqual({})
+    })
+
+    it('aborts the previous request for the same flag, but not for another', () => {
+      api.getFlagCount.mockReturnValue(new Promise(() => {}))
+
+      store.loadFlagCount('isBetashares')
+      store.loadFlagCount('isFlagshipFund')
+      store.loadFlagCount('isBetashares')
+
+      expect(signalOf(api.getFlagCount, 0).aborted).toBe(true)
+      expect(signalOf(api.getFlagCount, 1).aborted).toBe(false)
+      expect(signalOf(api.getFlagCount, 2).aborted).toBe(false)
+    })
+
+    it('leaves the count out when the request fails', async () => {
+      api.getFlagCount.mockResolvedValueOnce(19)
+      await store.loadFlagCount('isBetashares')
+      api.getFlagCount.mockRejectedValue(new Error('Failed'))
+
+      await store.loadFlagCount('isBetashares')
+
+      expect(store.flagCounts.isBetashares).toBeUndefined()
       expect(store.status).toBe('idle')
     })
   })

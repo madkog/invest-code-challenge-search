@@ -2,7 +2,16 @@ import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
 
 import { useSearchApi } from '../composables/useSearchApi'
-import type { FacetCount, Filters, Instrument, SearchParams, Suggestion } from '../types/search'
+import type {
+  FacetCount,
+  FacetKey,
+  FlagKey,
+  Filters,
+  Instrument,
+  SearchParams,
+  Sort,
+  Suggestion,
+} from '../types/search'
 
 const DEFAULT_PAGE_SIZE = 15
 export const SEARCH_STATUS = Object.freeze({
@@ -14,7 +23,7 @@ export const SEARCH_STATUS = Object.freeze({
 export type SearchStatus = (typeof SEARCH_STATUS)[keyof typeof SEARCH_STATUS]
 
 function createEmptyFilters(): Filters {
-  return { kind: [], issuer: [], is_betashares: null, is_flagship_fund: null }
+  return { kind: [], issuer: [], isBetashares: null, isFlagshipFund: null }
 }
 
 function getMessage(caught: unknown): string {
@@ -34,7 +43,7 @@ export const useSearchStore = defineStore('search', () => {
   // Request state
   const query = ref('')
   const filters = ref<Filters>(createEmptyFilters())
-  const sortBy = ref('') // e.g. "symbol.asc". Empty means ranked by relevance.
+  const sortBy = ref<Sort | null>(null) // null means ranked by relevance.
   const page = ref(1) // 1-based, as the API expects.
   const pageSize = ref(DEFAULT_PAGE_SIZE)
 
@@ -44,7 +53,8 @@ export const useSearchStore = defineStore('search', () => {
   const status = ref<SearchStatus>(SEARCH_STATUS.IDLE)
   const error = ref<string | null>(null)
   const suggestions = ref<Suggestion[]>([])
-  const facets = ref<Record<string, FacetCount[]>>({}) // facet key -> counts
+  const facets = ref<Partial<Record<FacetKey, FacetCount[]>>>({}) // facet key -> counts
+  const flagCounts = ref<Partial<Record<FlagKey, number>>>({}) // yes/no filter -> count
 
   const totalPages = computed(() => Math.ceil(count.value / pageSize.value))
   const isEmpty = computed(
@@ -66,7 +76,8 @@ export const useSearchStore = defineStore('search', () => {
 
   let searchController: AbortController | null = null
   let suggestionsController: AbortController | null = null
-  const facetControllers: Record<string, AbortController | undefined> = {} // one per facet key
+  const facetControllers: Partial<Record<FacetKey, AbortController>> = {} // one per facet key
+  const flagControllers: Partial<Record<FlagKey, AbortController>> = {} // one per yes/no filter
 
   async function search() {
     searchController?.abort()
@@ -110,8 +121,8 @@ export const useSearchStore = defineStore('search', () => {
     return search()
   }
 
-  function setSort(orderBy: string) {
-    sortBy.value = orderBy
+  function setSort(sort: Sort | null) {
+    sortBy.value = sort
     page.value = 1
     return search()
   }
@@ -145,7 +156,7 @@ export const useSearchStore = defineStore('search', () => {
     suggestions.value = []
   }
 
-  async function loadFacet(key: string) {
+  async function loadFacet(key: FacetKey) {
     facetControllers[key]?.abort()
     const controller = new AbortController()
     facetControllers[key] = controller
@@ -161,6 +172,20 @@ export const useSearchStore = defineStore('search', () => {
     }
   }
 
+  // A failed request leaves the count out, so nothing wrong is shown.
+  async function loadFlagCount(key: FlagKey) {
+    flagControllers[key]?.abort()
+    const controller = new AbortController()
+    flagControllers[key] = controller
+
+    try {
+      const count = await api.getFlagCount(key, filterParams.value, { signal: controller.signal })
+      if (!controller.signal.aborted) flagCounts.value[key] = count
+    } catch {
+      if (!controller.signal.aborted) flagCounts.value[key] = undefined
+    }
+  }
+
   return {
     query,
     filters,
@@ -173,6 +198,7 @@ export const useSearchStore = defineStore('search', () => {
     error,
     suggestions,
     facets,
+    flagCounts,
     totalPages,
     isEmpty,
     search,
@@ -184,5 +210,6 @@ export const useSearchStore = defineStore('search', () => {
     loadSuggestions,
     clearSuggestions,
     loadFacet,
+    loadFlagCount,
   }
 })

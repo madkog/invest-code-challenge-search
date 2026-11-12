@@ -8,7 +8,7 @@ import preset from '../theme/preset'
 
 vi.mock('../composables/useSearchApi', () => ({
   useSearchApi: () => ({
-    search: vi.fn().mockResolvedValue({ results: [], count: 0, indexed_at: 1 }),
+    search: vi.fn().mockResolvedValue({ results: [], count: 0 }),
     getSuggestions: vi.fn().mockResolvedValue({ results: [] }),
     getFacetCounts: vi.fn().mockResolvedValue([]),
   }),

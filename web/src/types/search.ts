@@ -1,35 +1,54 @@
+/**
+ * The app's own types for search. They use the app's names and formats, not the API's.
+ * Only useSearchApi translates between the two.
+ */
+
 export interface Instrument {
+  id: string
   symbol: string
-  symbol_openfigi: string
-  display_name: string
+  name: string
   kind: string
   currency: string
-  logo: string | null
+  logoUrl: string | null
   issuer: string | null
-  is_betashares: boolean
-  is_flagship_fund: boolean
-  is_portfolio_excluded: boolean
-  is_auto_invest_included: boolean
-  units_circulating: string | null
+  isBetashares: boolean
+  isFlagshipFund: boolean
+  isPortfolioExcluded: boolean
+  isAutoInvestIncluded: boolean
+  unitsCirculating: number | null
 }
 
-export type Suggestion = Pick<Instrument, 'symbol' | 'display_name'>
+// The light result used for suggestions.
+export type Suggestion = Pick<Instrument, 'symbol' | 'name'>
 
-// The filters the user has chosen. This is the app's own state, not the API's request format.
+// The filters the user has chosen.
 export interface Filters {
   kind: string[]
   issuer: string[]
   // null means the user has not chosen.
-  is_betashares: boolean | null
-  is_flagship_fund: boolean | null
+  isBetashares: boolean | null
+  isFlagshipFund: boolean | null
 }
 
-// What the app asks the API for. The API composable turns this into the request body.
+// A filter that has options with counts.
+export type FacetKey = 'kind' | 'issuer'
+
+// A yes/no filter. Its count is how many results have it switched on.
+export type FlagKey = 'isBetashares' | 'isFlagshipFund'
+
+export type SortField = 'symbol' | 'name'
+
+export interface Sort {
+  field: SortField
+  direction: 'asc' | 'desc'
+}
+
+// What the app asks for. Everything is optional.
 export interface SearchParams {
   text?: string
   filters?: Filters
-  // "field", "field.asc" or "field.desc". Empty means ranked by relevance.
-  sort?: string
+  // null or undefined means ranked by relevance.
+  sort?: Sort | null
   // Page number, starting at 1.
   page?: number
   size?: number
@@ -37,8 +56,8 @@ export interface SearchParams {
 
 export interface SearchResponse<T = Instrument> {
   results: T[]
+  // Total matches before pagination.
   count: number
-  indexed_at: number
 }
 
 export interface FacetCount {

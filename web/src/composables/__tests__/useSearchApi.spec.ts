@@ -1,9 +1,40 @@
 import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest'
 
-import type { Filters } from '../../types/search'
+import type { Filters, Instrument } from '../../types/search'
 import { useSearchApi } from '../useSearchApi'
 
-const noFilters: Filters = { kind: [], issuer: [], is_betashares: null, is_flagship_fund: null }
+const noFilters: Filters = { kind: [], issuer: [], isBetashares: null, isFlagshipFund: null }
+
+// An instrument as the API sends it, and the same instrument in the app's format.
+const API_A200 = {
+  symbol: 'A200',
+  symbol_openfigi: 'A200:AU',
+  display_name: 'Betashares Australia 200 ETF',
+  kind: 'etf',
+  currency: 'AUD',
+  logo: 'a200.svg',
+  issuer: 'betashares',
+  is_betashares: true,
+  is_flagship_fund: true,
+  is_portfolio_excluded: false,
+  is_auto_invest_included: true,
+  units_circulating: '1500000000',
+}
+
+const APP_A200: Instrument = {
+  id: 'A200:AU',
+  symbol: 'A200',
+  name: 'Betashares Australia 200 ETF',
+  kind: 'etf',
+  currency: 'AUD',
+  logoUrl: 'a200.svg',
+  issuer: 'betashares',
+  isBetashares: true,
+  isFlagshipFund: true,
+  isPortfolioExcluded: false,
+  isAutoInvestIncluded: true,
+  unitsCirculating: 1500000000,
+}
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status })
@@ -14,7 +45,9 @@ describe('useSearchApi', () => {
   let api: ReturnType<typeof useSearchApi>
 
   beforeEach(() => {
-    fetchMock = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse({ results: [], count: 0 }))
+    fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(jsonResponse({ results: [], count: 0, indexed_at: 1 }))
     vi.stubGlobal('fetch', fetchMock)
     api = useSearchApi()
   })
@@ -30,12 +63,16 @@ describe('useSearchApi', () => {
     return { url: String(url), options }
   }
 
-  describe('search', () => {
+  function sentBody() {
+    return JSON.parse(String(lastCall().options.body))
+  }
+
+  describe('search request', () => {
     it('POSTs the params as an API request body to /api/search', async () => {
       await api.search({
         text: 'a200',
         filters: { ...noFilters, kind: ['etf'] },
-        sort: 'symbol.asc',
+        sort: { field: 'symbol', direction: 'asc' },
         page: 1,
         size: 10,
       })
@@ -44,7 +81,7 @@ describe('useSearchApi', () => {
       expect(url).toBe('/api/search')
       expect(options.method).toBe('POST')
       expect(options.headers).toEqual({ 'Content-Type': 'application/json' })
-      expect(JSON.parse(String(options.body))).toEqual({
+      expect(sentBody()).toEqual({
         search_text: 'a200',
         kind: ['etf'],
         order_by: 'symbol.asc',
@@ -58,44 +95,34 @@ describe('useSearchApi', () => {
         filters: { ...noFilters, kind: ['etf'], issuer: ['betashares', 'vaneck'] },
       })
 
-      expect(JSON.parse(String(lastCall().options.body))).toEqual({
-        kind: ['etf'],
-        issuer: ['betashares', 'vaneck'],
-      })
+      expect(sentBody()).toEqual({ kind: ['etf'], issuer: ['betashares', 'vaneck'] })
     })
 
-    it('sends booleans as { value } and keeps false', async () => {
-      await api.search({ filters: { ...noFilters, is_betashares: true, is_flagship_fund: false } })
+    it('sends booleans as { value } with the API names, and keeps false', async () => {
+      await api.search({ filters: { ...noFilters, isBetashares: true, isFlagshipFund: false } })
 
-      expect(JSON.parse(String(lastCall().options.body))).toEqual({
+      expect(sentBody()).toEqual({
         is_betashares: { value: true },
         is_flagship_fund: { value: false },
       })
     })
 
-    it('leaves out blank text and sort, empty lists and unset booleans', async () => {
-      await api.search({ text: '', filters: noFilters, sort: '', page: 2 })
+    it('sends the name sort with the API field name', async () => {
+      await api.search({ sort: { field: 'name', direction: 'desc' } })
 
-      expect(JSON.parse(String(lastCall().options.body))).toEqual({ from: 2 })
+      expect(sentBody()).toEqual({ order_by: 'display_name.desc' })
+    })
+
+    it('leaves out blank text, no sort, empty lists and unset booleans', async () => {
+      await api.search({ text: '', filters: noFilters, sort: null, page: 2 })
+
+      expect(sentBody()).toEqual({ from: 2 })
     })
 
     it('sends an empty object when there are no params', async () => {
       await api.search()
 
       expect(lastCall().options.body).toBe('{}')
-    })
-
-    it('adds a comma separated fields param', async () => {
-      await api.search({}, { fields: ['symbol', 'kind'] })
-
-      expect(lastCall().url).toBe('/api/search?fields=symbol%2Ckind')
-    })
-
-    it('returns the parsed response', async () => {
-      const body = { results: [{ symbol: 'A200' }], count: 1, indexed_at: 1 }
-      fetchMock.mockResolvedValue(jsonResponse(body))
-
-      expect(await api.search({ text: 'a200' })).toEqual(body)
     })
 
     it('can be aborted with the signal', async () => {
@@ -116,36 +143,76 @@ describe('useSearchApi', () => {
     })
   })
 
+  describe('search response', () => {
+    it('returns the results in the app format, with the count', async () => {
+      fetchMock.mockResolvedValue(
+        jsonResponse({ results: [API_A200], count: 42, indexed_at: 1794444566255 }),
+      )
+
+      expect(await api.search()).toEqual({ results: [APP_A200], count: 42 })
+    })
+
+    it('turns a missing units value into null', async () => {
+      fetchMock.mockResolvedValue(
+        jsonResponse({
+          results: [{ ...API_A200, units_circulating: null }],
+          count: 1,
+          indexed_at: 1,
+        }),
+      )
+
+      const { results } = await api.search()
+
+      expect(results[0]?.unitsCirculating).toBeNull()
+    })
+  })
+
   describe('getSuggestions', () => {
     it('searches with light fields and the given text and size', async () => {
       await api.getSuggestions('vas', { size: 5 })
 
-      const { url, options } = lastCall()
-      expect(url).toBe('/api/search?fields=symbol%2Cdisplay_name')
-      expect(JSON.parse(String(options.body))).toEqual({ search_text: 'vas', size: 5 })
+      expect(lastCall().url).toBe('/api/search?fields=symbol%2Cdisplay_name')
+      expect(sentBody()).toEqual({ search_text: 'vas', size: 5 })
     })
 
     it('defaults the size to 6', async () => {
       await api.getSuggestions('vas')
 
-      expect(JSON.parse(String(lastCall().options.body))).toEqual({ search_text: 'vas', size: 6 })
+      expect(sentBody()).toEqual({ search_text: 'vas', size: 6 })
+    })
+
+    it('returns symbol and name in the app format', async () => {
+      fetchMock.mockResolvedValue(
+        jsonResponse({
+          results: [{ symbol: 'VAS', display_name: 'Vanguard Australian Shares' }],
+          count: 1,
+          indexed_at: 1,
+        }),
+      )
+
+      expect(await api.getSuggestions('vas')).toEqual({
+        results: [{ symbol: 'VAS', name: 'Vanguard Australian Shares' }],
+        count: 1,
+      })
     })
   })
 
   describe('getFacetCounts', () => {
+    // The facet endpoint answers with a list of counts.
+    beforeEach(() => {
+      fetchMock.mockResolvedValue(jsonResponse([]))
+    })
+
     it('POSTs the text and filters to /api/facets/:key', async () => {
       await api.getFacetCounts('kind', {
         text: 'bonds',
-        filters: { ...noFilters, is_betashares: true },
+        filters: { ...noFilters, isBetashares: true },
       })
 
       const { url, options } = lastCall()
       expect(url).toBe('/api/facets/kind')
       expect(options.method).toBe('POST')
-      expect(JSON.parse(String(options.body))).toEqual({
-        search_text: 'bonds',
-        is_betashares: { value: true },
-      })
+      expect(sentBody()).toEqual({ search_text: 'bonds', is_betashares: { value: true } })
     })
 
     it('adds omit_empty_counts when asked', async () => {
@@ -154,37 +221,66 @@ describe('useSearchApi', () => {
       expect(lastCall().url).toBe('/api/facets/issuer?omit_empty_counts=true')
     })
 
-    it('encodes the key', async () => {
-      await api.getFacetCounts('a/b')
+    it('returns the counts', async () => {
+      fetchMock.mockResolvedValue(jsonResponse([{ value: 'etf', count: 5 }]))
 
-      expect(lastCall().url).toBe('/api/facets/a%2Fb')
+      expect(await api.getFacetCounts('kind')).toEqual([{ value: 'etf', count: 5 }])
     })
   })
 
-  describe('getFacetKeys', () => {
-    it('GETs /api/facets/keys without a body', async () => {
-      await api.getFacetKeys()
+  describe('getFlagCount', () => {
+    beforeEach(() => {
+      fetchMock.mockResolvedValue(jsonResponse([]))
+    })
+
+    it('POSTs the text and filters to the facet for the flag, with the API name', async () => {
+      await api.getFlagCount('isBetashares', {
+        text: 'bonds',
+        filters: { ...noFilters, kind: ['etf'] },
+      })
 
       const { url, options } = lastCall()
-      expect(url).toBe('/api/facets/keys')
-      expect(options.method).toBe('GET')
-      expect(options.body).toBeUndefined()
+      expect(url).toBe('/api/facets/is_betashares')
+      expect(options.method).toBe('POST')
+      expect(sentBody()).toEqual({ search_text: 'bonds', kind: ['etf'] })
+    })
+
+    it('uses the API name for every flag', async () => {
+      await api.getFlagCount('isFlagshipFund')
+
+      expect(lastCall().url).toBe('/api/facets/is_flagship_fund')
+    })
+
+    it('returns how many results have the flag on', async () => {
+      fetchMock.mockResolvedValue(
+        jsonResponse([
+          { value: 'true', count: 102 },
+          { value: 'false', count: 732 },
+        ]),
+      )
+
+      expect(await api.getFlagCount('isBetashares')).toBe(102)
+    })
+
+    it('returns 0 when no result has the flag on', async () => {
+      fetchMock.mockResolvedValue(jsonResponse([{ value: 'false', count: 5 }]))
+      expect(await api.getFlagCount('isBetashares')).toBe(0)
+
+      fetchMock.mockResolvedValue(jsonResponse([]))
+      expect(await api.getFlagCount('isBetashares')).toBe(0)
     })
   })
 
   describe('getInstrument', () => {
-    it('GETs the encoded instrument id', async () => {
-      await api.getInstrument('A200:AU')
+    it('GETs the encoded id and returns the instrument in the app format', async () => {
+      fetchMock.mockResolvedValue(jsonResponse(API_A200))
+
+      const instrument = await api.getInstrument('A200:AU')
 
       const { url, options } = lastCall()
       expect(url).toBe('/api/instruments/A200%3AAU')
       expect(options.method).toBe('GET')
-    })
-
-    it('adds the fields param', async () => {
-      await api.getInstrument('A200:AU', { fields: ['symbol'] })
-
-      expect(lastCall().url).toBe('/api/instruments/A200%3AAU?fields=symbol')
+      expect(instrument).toEqual(APP_A200)
     })
   })
 
@@ -207,7 +303,7 @@ describe('useSearchApi', () => {
     it('rejects with the network error when fetch fails', async () => {
       fetchMock.mockRejectedValue(new TypeError('Failed to fetch'))
 
-      await expect(api.getFacetKeys()).rejects.toThrow('Failed to fetch')
+      await expect(api.getInstrument('A200:AU')).rejects.toThrow('Failed to fetch')
     })
   })
 })
