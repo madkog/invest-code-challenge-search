@@ -1,5 +1,62 @@
+// PrimeVue theme preset, from the approved design in docs/search-design/theme-preset.js.
 import { definePreset } from '@primeuix/themes'
 import Aura from '@primeuix/themes/aura'
 
-// The one place the PrimeVue theme is defined. Brand colours are added here in the theming step.
-export default definePreset(Aura, {})
+// Built around the site's brand orange #FC4D16 (500).
+// White text on #FC4D16 is only 3.4:1, under WCAG AA's 4.5:1 for normal text,
+// so the interactive colour uses 700 (#BF3002, 5.8:1) in light mode and 400 in dark mode.
+// Selected and highlighted options use neutral slate, not orange tints.
+const orange = {
+  50: '#fff0eb',
+  100: '#fee0d7',
+  200: '#fec1ae',
+  300: '#fd9b7c',
+  400: '#fd754a',
+  500: '#fc4d16',
+  600: '#e83a03',
+  700: '#bf3002',
+  800: '#972602',
+  900: '#6b210a',
+  950: '#3d1306',
+}
+const slate = Object.fromEntries(
+  [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950].map((key) => [key, `{slate.${key}}`]),
+)
+
+export default definePreset(Aura, {
+  semantic: {
+    primary: orange,
+    colorScheme: {
+      light: {
+        surface: { 0: '#ffffff', ...slate },
+        primary: {
+          color: '{primary.700}',
+          contrastColor: '#ffffff',
+          hoverColor: '{primary.800}',
+          activeColor: '{primary.900}',
+        },
+        highlight: {
+          background: '{surface.100}',
+          focusBackground: '{surface.200}',
+          color: '{surface.900}',
+          focusColor: '{surface.950}',
+        },
+      },
+      dark: {
+        surface: { 0: '#ffffff', ...slate },
+        primary: {
+          color: '{primary.400}',
+          contrastColor: '{surface.950}',
+          hoverColor: '{primary.300}',
+          activeColor: '{primary.200}',
+        },
+        highlight: {
+          background: '{surface.800}',
+          focusBackground: '{surface.700}',
+          color: '{surface.0}',
+          focusColor: '{surface.0}',
+        },
+      },
+    },
+  },
+})

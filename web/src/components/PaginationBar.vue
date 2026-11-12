@@ -1,0 +1,45 @@
+<script setup lang="ts">
+import { computed } from 'vue'
+import Paginator, { type PageState } from 'primevue/paginator'
+
+const props = withDefaults(
+  defineProps<{
+    // The current page, starting at 1.
+    page: number
+    pageSize: number
+    total: number
+    pageSizeOptions?: number[]
+  }>(),
+  { pageSizeOptions: () => [15, 30, 50] },
+)
+
+const emit = defineEmits<{ change: [change: { page: number; pageSize: number }] }>()
+
+// One page of the smallest size or less never needs controls.
+const visible = computed(() => props.total > Math.min(props.pageSize, ...props.pageSizeOptions))
+// The paginator counts from 0 by position, while the page counts from 1.
+const first = computed(() => (props.page - 1) * props.pageSize)
+
+function onPage(state: PageState) {
+  emit('change', { page: Math.floor(state.first / state.rows) + 1, pageSize: state.rows })
+}
+</script>
+
+<template>
+  <Paginator
+    v-if="visible"
+    class="pager"
+    :rows="pageSize"
+    :total-records="total"
+    :first="first"
+    :rows-per-page-options="pageSizeOptions"
+    @page="onPage"
+  />
+</template>
+
+<style scoped>
+.pager {
+  margin-top: 14px;
+  background: transparent;
+}
+</style>
