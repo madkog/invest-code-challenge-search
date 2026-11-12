@@ -9,7 +9,7 @@ export const POPULAR_SEARCHES = [
   'ethical',
   'mining',
   'hybrid',
-  'crypto',
+  'bitcoin',
 ]
 
 // Display names for the main issuers, by the ids the API uses. Any other issuer gets its id

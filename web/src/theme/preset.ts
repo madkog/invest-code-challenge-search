@@ -6,7 +6,7 @@ import Aura from '@primeuix/themes/aura'
 // White text on #FC4D16 is only 3.4:1, under WCAG AA's 4.5:1 for normal text,
 // so the interactive colour uses 700 (#BF3002, 5.8:1) in light mode and 400 in dark mode.
 // Selected and highlighted options use neutral slate, not orange tints.
-const orange = {
+export const orange = {
   50: '#fff0eb',
   100: '#fee0d7',
   200: '#fec1ae',

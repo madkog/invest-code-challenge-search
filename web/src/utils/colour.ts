@@ -24,6 +24,16 @@ function contrast(first: number, second: number): number {
 }
 
 /**
+ * The WCAG contrast ratio between two hex colours, from 1 to 21. Null if either is not hex.
+ */
+export function contrastRatio(first: string, second: string): number | null {
+  const firstRgb = parseHex(first)
+  const secondRgb = parseHex(second)
+  if (!firstRgb || !secondRgb) return null
+  return contrast(luminance(firstRgb), luminance(secondRgb))
+}
+
+/**
  * Picks the light or dark text colour that reads best on the background colour.
  * Falls back to the dark colour when the background is not a hex colour.
  */

@@ -209,7 +209,7 @@ function onSubmit(modelValue: string) {
 
 .meta {
   font-size: 12px;
-  color: var(--p-text-muted-color);
+  color: var(--subtle-text);
   white-space: nowrap;
 }
 </style>

@@ -40,7 +40,7 @@ label {
 
 .n {
   margin-left: auto;
-  color: var(--p-text-muted-color);
+  color: var(--subtle-text);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
 }

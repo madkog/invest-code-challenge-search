@@ -3,19 +3,33 @@
   --f-display: 'Manrope', ui-sans-serif, system-ui, sans-serif;
   --f-body: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --f-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Browser-drawn parts, such as scrollbars and form controls, follow the mode. */
+  color-scheme: light;
+
+  /* Small secondary text, such as counts. Darker than PrimeVue's muted text so it stays
+     readable (4.5:1) on the tinted backgrounds of hovered and selected options. */
+  --subtle-text: var(--p-surface-600);
+}
+
+.app-dark {
+  color-scheme: dark;
+  --subtle-text: var(--p-surface-300);
 }
 
 body {
   margin: 0;
-  background: var(--p-surface-50);
-  color: var(--p-text-color);
+  /* The fallbacks show until PrimeVue's theme has loaded, so the page does not flash. */
+  background: var(--p-surface-50, #f8fafc);
+  color: var(--p-text-color, #334155);
   font-family: var(--f-body);
   font-size: 15px;
   line-height: 1.5;
 }
 
 .app-dark body {
-  background: var(--p-surface-950);
+  background: var(--p-surface-950, #020617);
+  color: var(--p-text-color, #ffffff);
 }
 
 *,

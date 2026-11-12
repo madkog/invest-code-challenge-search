@@ -44,7 +44,7 @@ const labelId = useId()
 
 .n {
   margin-left: 0.4em;
-  color: var(--p-text-muted-color);
+  color: var(--subtle-text);
   font-variant-numeric: tabular-nums;
 }
 
