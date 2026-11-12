@@ -10,25 +10,28 @@
   /* Small secondary text, such as counts. Darker than PrimeVue's muted text so it stays
      readable (4.5:1) on the tinted backgrounds of hovered and selected options. */
   --subtle-text: var(--p-surface-600);
+
+  /* The page behind the content: Betashares' warm light grey. Cards stay white on top of it. */
+  --page-background: #eeeae6;
 }
 
 .app-dark {
   color-scheme: dark;
   --subtle-text: var(--p-surface-300);
+  --page-background: var(--p-surface-950, #0c0a09);
 }
 
 body {
   margin: 0;
   /* The fallbacks show until PrimeVue's theme has loaded, so the page does not flash. */
-  background: var(--p-surface-50, #f8fafc);
-  color: var(--p-text-color, #334155);
+  background: var(--page-background);
+  color: var(--p-text-color, #44403c);
   font-family: var(--f-body);
   font-size: 15px;
   line-height: 1.5;
 }
 
 .app-dark body {
-  background: var(--p-surface-950, #020617);
   color: var(--p-text-color, #ffffff);
 }
 

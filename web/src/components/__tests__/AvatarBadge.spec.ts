@@ -26,14 +26,14 @@ describe('AvatarBadge', () => {
     const light = mountBadge({ colour: '#FFCC00' })
     const dark = mountBadge({ colour: '#1A1A1A' })
 
-    expect(light.attributes('style')).toContain('rgb(15, 23, 42)')
+    expect(light.attributes('style')).toContain('rgb(28, 25, 23)')
     expect(dark.attributes('style')).toContain('rgb(255, 255, 255)')
   })
 
   it('uses a neutral background when there is no colour', () => {
     const wrapper = mountBadge({})
 
-    expect(wrapper.attributes('style')).toContain('rgb(100, 116, 139)')
+    expect(wrapper.attributes('style')).toContain('rgb(120, 113, 108)')
   })
 
   it('shows the image when there is one', () => {

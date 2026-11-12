@@ -3,21 +3,23 @@ import { describe, it, expect } from 'vitest'
 import { contrastRatio } from '../../utils/colour'
 import { orange } from '../preset'
 
-// Aura's slate scale, which the preset uses for surfaces and text.
-const slate = {
-  50: '#f8fafc',
-  100: '#f1f5f9',
-  200: '#e2e8f0',
-  300: '#cbd5e1',
-  400: '#94a3b8',
-  500: '#64748b',
-  600: '#475569',
-  700: '#334155',
-  800: '#1e293b',
-  900: '#0f172a',
-  950: '#020617',
+// Aura's warm stone scale, which the preset uses for surfaces and text.
+const stone = {
+  50: '#fafaf9',
+  100: '#f5f5f4',
+  200: '#e7e5e4',
+  300: '#d6d3d1',
+  400: '#a8a29e',
+  500: '#78716c',
+  600: '#57534e',
+  700: '#44403c',
+  800: '#292524',
+  900: '#1c1917',
+  950: '#0c0a09',
 }
 const white = '#ffffff'
+// The light page background, from --page-background in global.css.
+const pageBackground = '#eeeae6'
 
 // WCAG AA: 4.5:1 for normal text, 3:1 for graphics such as the match underline.
 const TEXT = 4.5
@@ -31,12 +33,12 @@ interface Pair {
 }
 
 const LIGHT: Pair[] = [
-  { name: 'body text on white', foreground: slate[700], background: white, minimum: TEXT },
-  { name: 'muted text on white', foreground: slate[500], background: white, minimum: TEXT },
+  { name: 'body text on white', foreground: stone[700], background: white, minimum: TEXT },
+  { name: 'muted text on white', foreground: stone[600], background: white, minimum: TEXT },
   {
     name: 'muted text on the page background',
-    foreground: slate[500],
-    background: slate[50],
+    foreground: stone[600],
+    background: pageBackground,
     minimum: TEXT,
   },
   {
@@ -48,7 +50,7 @@ const LIGHT: Pair[] = [
   {
     name: 'links on the page background',
     foreground: orange[700],
-    background: slate[50],
+    background: pageBackground,
     minimum: TEXT,
   },
   { name: 'button text', foreground: white, background: orange[700], minimum: TEXT },
@@ -62,56 +64,56 @@ const LIGHT: Pair[] = [
   // Counts and notes sit on tinted backgrounds: toggle buttons, and hovered or focused options.
   {
     name: 'counts on a toggle button',
-    foreground: slate[600],
-    background: slate[100],
+    foreground: stone[600],
+    background: stone[100],
     minimum: TEXT,
   },
   {
     name: 'counts on a focused option',
-    foreground: slate[600],
-    background: slate[200],
+    foreground: stone[600],
+    background: stone[200],
     minimum: TEXT,
   },
 ]
 
 const DARK: Pair[] = [
-  { name: 'body text on content', foreground: white, background: slate[900], minimum: TEXT },
-  { name: 'muted text on content', foreground: slate[400], background: slate[900], minimum: TEXT },
+  { name: 'body text on content', foreground: white, background: stone[900], minimum: TEXT },
+  { name: 'muted text on content', foreground: stone[400], background: stone[900], minimum: TEXT },
   {
     name: 'muted text on the page background',
-    foreground: slate[400],
-    background: slate[950],
+    foreground: stone[400],
+    background: stone[950],
     minimum: TEXT,
   },
   {
     name: 'links and primary text on content',
     foreground: orange[400],
-    background: slate[900],
+    background: stone[900],
     minimum: TEXT,
   },
   {
     name: 'links on the page background',
     foreground: orange[400],
-    background: slate[950],
+    background: stone[950],
     minimum: TEXT,
   },
-  { name: 'button text', foreground: slate[950], background: orange[400], minimum: TEXT },
+  { name: 'button text', foreground: stone[950], background: orange[400], minimum: TEXT },
   {
     name: 'match underline on content',
     foreground: orange[500],
-    background: slate[900],
+    background: stone[900],
     minimum: GRAPHIC,
   },
   {
     name: 'counts on a dark toggle button',
-    foreground: slate[300],
-    background: slate[800],
+    foreground: stone[300],
+    background: stone[800],
     minimum: TEXT,
   },
   {
     name: 'counts on a focused option',
-    foreground: slate[300],
-    background: slate[700],
+    foreground: stone[300],
+    background: stone[700],
     minimum: TEXT,
   },
 ]

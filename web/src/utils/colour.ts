@@ -40,7 +40,7 @@ export function contrastRatio(first: string, second: string): number | null {
 export function readableTextColour(
   background: string,
   light = '#FFFFFF',
-  dark = '#0F172A',
+  dark = '#1C1917',
 ): string {
   const backgroundRgb = parseHex(background)
   const lightRgb = parseHex(light)

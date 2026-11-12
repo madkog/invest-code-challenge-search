@@ -16,6 +16,7 @@ import InstrumentDrawer from '../components/InstrumentDrawer.vue'
 import InstrumentRow from '../components/InstrumentRow.vue'
 import PopularSearches from '../components/PopularSearches.vue'
 import ResultsToolbar from '../components/ResultsToolbar.vue'
+import ThemeToggle from '../../../components/ThemeToggle.vue'
 import SearchBox from '../components/SearchBox/SearchBox.vue'
 import SearchPage from '../SearchPage.vue'
 
@@ -631,6 +632,23 @@ describe('SearchPage', () => {
 
       expect(store.clearInstrument).toHaveBeenCalled()
       expect(wrapper.getComponent(InstrumentDrawer).props('visible')).toBe(false)
+    })
+  })
+  describe('theme', () => {
+    afterEach(() => {
+      document.documentElement.classList.remove('app-dark')
+      localStorage.clear()
+    })
+
+    it('starts light and switches to dark from the toggle beside the heading', async () => {
+      const toggle = wrapper.getComponent(ThemeToggle)
+      expect(toggle.props('dark')).toBe(false)
+
+      toggle.vm.$emit('toggle')
+      await nextTick()
+
+      expect(toggle.props('dark')).toBe(true)
+      expect(document.documentElement.classList.contains('app-dark')).toBe(true)
     })
   })
 })

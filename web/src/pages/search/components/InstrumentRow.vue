@@ -172,6 +172,13 @@ defineProps<{
     grid-template-columns: auto minmax(0, 1fr);
   }
 
+  /* On a narrow screen the ticker sits above the name, so a long name gets the full width. */
+  .top {
+    flex-direction: column;
+    gap: 4px;
+    align-items: flex-start;
+  }
+
   .right {
     grid-column: 2;
     grid-row: auto;

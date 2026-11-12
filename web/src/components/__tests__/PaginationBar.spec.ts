@@ -37,6 +37,25 @@ describe('PaginationBar', () => {
     expect(paginator.props('totalRecords')).toBe(40)
   })
 
+  it('uses a simpler layout with page x of y on phones', () => {
+    const paginator = mountBar({ page: 1, pageSize: 15, total: 100 }).getComponent(Paginator)
+
+    // PrimeVue turns each layout into a list of parts.
+    expect(paginator.props('template')['560px']).toEqual([
+      'PrevPageLink',
+      'CurrentPageReport',
+      'NextPageLink',
+      'RowsPerPageDropdown',
+    ])
+    expect(paginator.props('currentPageReportTemplate')).toBe('Page {currentPage} of {totalPages}')
+  })
+
+  it('keeps working when several pagers are shown', () => {
+    mountBar({ page: 1, pageSize: 15, total: 100 })
+
+    expect(() => mountBar({ page: 2, pageSize: 15, total: 100 })).not.toThrow()
+  })
+
   it('reports a page change as a 1-based page', () => {
     const wrapper = mountBar({ page: 1, pageSize: 15, total: 40 })
 

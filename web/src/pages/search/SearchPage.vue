@@ -9,6 +9,9 @@ import ErrorMessage from '../../components/ErrorMessage.vue'
 import ListSkeleton from '../../components/ListSkeleton.vue'
 import PaginationBar from '../../components/PaginationBar.vue'
 import ResultsList from '../../components/ResultsList.vue'
+import ThemeToggle from '../../components/ThemeToggle.vue'
+import { useCloseOnBack } from '../../composables/useCloseOnBack'
+import { useColourScheme } from '../../composables/useColourScheme'
 import { useDelayedFlag } from '../../composables/useDelayedFlag'
 import { useRecentSearches } from './composables/useRecentSearches'
 import { SEARCH_STATUS, useSearchStore } from '../../stores/search'
@@ -46,6 +49,7 @@ const {
 } = storeToRefs(store)
 
 const { searches: recentSearches, add: addRecentSearch } = useRecentSearches()
+const { scheme, toggle: toggleScheme } = useColourScheme()
 const toolbar = useTemplateRef<InstanceType<typeof ResultsToolbar>>('toolbar')
 
 // What is typed in the box. The search only changes when it is submitted or a suggestion is picked.
@@ -131,6 +135,9 @@ function onDrawerVisible(visible: boolean) {
   if (!visible) store.clearInstrument()
 }
 
+// On a phone the drawer covers the page, so the back button or swipe closes it instead of leaving.
+useCloseOnBack(drawerOpen, () => onDrawerVisible(false))
+
 function onKind(kinds: Kind[]) {
   updateSearch(() => setKindFilter(kinds))
 }
@@ -182,7 +189,10 @@ onMounted(() => {
   <div class="page">
     <header class="hero">
       <span class="eyebrow">Search</span>
-      <h1>Find an ETF or share</h1>
+      <div class="title">
+        <h1>Find an ETF or share</h1>
+        <ThemeToggle :dark="scheme === 'dark'" @toggle="toggleScheme" />
+      </div>
 
       <SearchBox
         v-model="draft"
@@ -283,8 +293,17 @@ onMounted(() => {
 
 .hero {
   display: grid;
+  /* minmax(0, 1fr) lets wide content, such as the scrolling pills, shrink to the page width. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
   margin-bottom: 26px;
+}
+
+.title {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .hero h1 {

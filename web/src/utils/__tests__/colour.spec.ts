@@ -9,21 +9,21 @@ describe('readableTextColour', () => {
   })
 
   it('uses dark text on a light background', () => {
-    expect(readableTextColour('#FFCC00')).toBe('#0F172A')
-    expect(readableTextColour('#FFFFFF')).toBe('#0F172A')
+    expect(readableTextColour('#FFCC00')).toBe('#1C1917')
+    expect(readableTextColour('#FFFFFF')).toBe('#1C1917')
   })
 
   it('uses dark text on the bright brand orange, where white only reaches 3.4:1', () => {
-    expect(readableTextColour('#FC4D16')).toBe('#0F172A')
+    expect(readableTextColour('#FC4D16')).toBe('#1C1917')
   })
 
   it('accepts short hex colours and a missing #', () => {
     expect(readableTextColour('#000')).toBe('#FFFFFF')
-    expect(readableTextColour('fff')).toBe('#0F172A')
+    expect(readableTextColour('fff')).toBe('#1C1917')
   })
 
   it('falls back to the dark colour for an invalid background', () => {
-    expect(readableTextColour('not a colour')).toBe('#0F172A')
+    expect(readableTextColour('not a colour')).toBe('#1C1917')
   })
 
   it('uses the colours it is given', () => {
@@ -34,7 +34,7 @@ describe('readableTextColour', () => {
 describe('contrastRatio', () => {
   it('is 21 for black on white and 1 for a colour on itself', () => {
     expect(contrastRatio('#000000', '#ffffff')).toBeCloseTo(21, 5)
-    expect(contrastRatio('#64748b', '#64748b')).toBeCloseTo(1, 5)
+    expect(contrastRatio('#78716c', '#78716c')).toBeCloseTo(1, 5)
   })
 
   it('does not depend on which colour is the text', () => {

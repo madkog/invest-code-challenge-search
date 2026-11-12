@@ -16,7 +16,7 @@ const props = withDefaults(
   { imageUrl: null, colour: null, size: 'large' },
 )
 
-const FALLBACK_COLOUR = '#64748B'
+const FALLBACK_COLOUR = '#78716C'
 
 const imageFailed = ref(false)
 // A new image gets a fresh chance to load.

@@ -117,7 +117,13 @@ function onSubmit(modelValue: string) {
         </template>
       </AutoComplete>
     </div>
-    <Button type="submit" :label="buttonLabel" class="go" />
+    <Button
+      type="submit"
+      :label="buttonLabel"
+      :aria-label="buttonLabel"
+      icon="pi pi-search"
+      class="go"
+    />
   </form>
 </template>
 
@@ -162,6 +168,27 @@ function onSubmit(modelValue: string) {
   padding-inline: 22px;
   font-weight: 600;
   border-radius: 12px;
+}
+
+/* The box already shows a search icon, so on wider screens the button shows only its text. */
+.go :deep(.p-button-icon) {
+  display: none;
+}
+
+/* On a phone the button is a square icon, so the box keeps most of the row. */
+@media (max-width: 560px) {
+  .go {
+    width: 54px;
+    padding-inline: 0;
+  }
+
+  .go :deep(.p-button-icon) {
+    display: inline;
+  }
+
+  .go :deep(.p-button-label) {
+    display: none;
+  }
 }
 
 .group {
