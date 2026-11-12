@@ -3,6 +3,7 @@ import { defineStore } from 'pinia'
 
 import { useSearchApi } from '../composables/useSearchApi'
 import { HttpError } from '../utils/httpClient'
+import { createRequestTracker } from '../utils/requestTracker'
 import type {
   FacetCount,
   FacetKey,
@@ -15,22 +16,21 @@ import type {
 } from '../types/search'
 
 const DEFAULT_PAGE_SIZE = 15
-const SUGGESTION_SIZE = 5
-export const SEARCH_STATUS = Object.freeze({
+export const SEARCH_STATUS = {
   IDLE: 'idle',
   LOADING: 'loading',
   SUCCESS: 'success',
   ERROR: 'error',
-} as const)
+} as const
 export type SearchStatus = (typeof SEARCH_STATUS)[keyof typeof SEARCH_STATUS]
 
-export const DETAIL_STATUS = Object.freeze({
+export const DETAIL_STATUS = {
   IDLE: 'idle',
   LOADING: 'loading',
   SUCCESS: 'success',
   NOT_FOUND: 'not-found',
   ERROR: 'error',
-} as const)
+} as const
 export type DetailStatus = (typeof DETAIL_STATUS)[keyof typeof DETAIL_STATUS]
 
 function createEmptyFilters(): Filters {
@@ -51,11 +51,12 @@ function getMessage(caught: unknown): string {
  * Shared search state: query, filters, sort, page, results and status.
  * Only the search page uses this store. It calls the API composable and nothing else.
  *
- * Each action changes the state and sends its request. Each kind of request keeps its own
- * AbortController, so a newer request aborts the older one and a stale result is ignored.
+ * Each action changes the state and sends its request. A newer request of the same kind cancels
+ * the older one, so a stale result is ignored.
  */
 export const useSearchStore = defineStore('search', () => {
   const api = useSearchApi()
+  const requests = createRequestTracker()
 
   // Request state
   const query = ref('')
@@ -77,7 +78,6 @@ export const useSearchStore = defineStore('search', () => {
   const instrument = ref<Instrument | null>(null) // the one shown in the details
   const instrumentStatus = ref<DetailStatus>(DETAIL_STATUS.IDLE)
 
-  const totalPages = computed(() => Math.ceil(count.value / pageSize.value))
   const isEmpty = computed(
     () => status.value === SEARCH_STATUS.SUCCESS && results.value.length === 0,
   )
@@ -95,28 +95,20 @@ export const useSearchStore = defineStore('search', () => {
     size: pageSize.value,
   }))
 
-  let searchController: AbortController | null = null
-  let suggestionsController: AbortController | null = null
-  const facetControllers: Partial<Record<FacetKey, AbortController>> = {} // one per facet key
-  const flagControllers: Partial<Record<FlagKey, AbortController>> = {} // one per yes/no filter
-  let instrumentController: AbortController | null = null
-
   async function search() {
-    searchController?.abort()
-    const controller = new AbortController()
-    searchController = controller
+    const request = requests.start('search')
 
     status.value = SEARCH_STATUS.LOADING
     error.value = null
 
     try {
-      const response = await api.search(searchParams.value, { signal: controller.signal })
-      if (controller.signal.aborted) return
+      const response = await api.search(searchParams.value, { signal: request.signal })
+      if (!request.isCurrent()) return
       results.value = response.results
       count.value = response.count
       status.value = SEARCH_STATUS.SUCCESS
     } catch (caught) {
-      if (controller.signal.aborted) return
+      if (!request.isCurrent()) return
       results.value = []
       count.value = 0
       error.value = getMessage(caught)
@@ -167,29 +159,27 @@ export const useSearchStore = defineStore('search', () => {
       return
     }
 
-    suggestionsController?.abort()
-    const controller = new AbortController()
-    suggestionsController = controller
+    const request = requests.start('suggestions')
 
     try {
-      const { signal } = controller
+      const { signal } = request
       // The matching instruments and the ETF and share counts are requested together.
       const [matches, kinds] = await Promise.all([
-        api.getSuggestions(text, { size: SUGGESTION_SIZE, signal }),
-        api.getFacetCounts('kind', { text }, { omitEmptyCounts: true, signal }),
+        api.getSuggestions(text, { signal }),
+        api.getFacetCounts('kind', { text }, { signal }),
       ])
-      if (signal.aborted) return
+      if (!request.isCurrent()) return
       suggestions.value = matches.results
       suggestionKinds.value = kinds
     } catch {
-      if (controller.signal.aborted) return
+      if (!request.isCurrent()) return
       suggestions.value = []
       suggestionKinds.value = []
     }
   }
 
   function clearSuggestions() {
-    suggestionsController?.abort()
+    requests.cancel('suggestions')
     suggestions.value = []
     suggestionKinds.value = []
   }
@@ -204,51 +194,42 @@ export const useSearchStore = defineStore('search', () => {
   }
 
   async function loadFacet(key: FacetKey) {
-    facetControllers[key]?.abort()
-    const controller = new AbortController()
-    facetControllers[key] = controller
+    const request = requests.start(`facet:${key}`)
 
     try {
-      const counts = await api.getFacetCounts(key, filterParams.value, {
-        omitEmptyCounts: true,
-        signal: controller.signal,
-      })
-      if (!controller.signal.aborted) facets.value[key] = counts
+      const counts = await api.getFacetCounts(key, filterParams.value, { signal: request.signal })
+      if (request.isCurrent()) facets.value[key] = counts
     } catch {
-      if (!controller.signal.aborted) facets.value[key] = []
+      if (request.isCurrent()) facets.value[key] = []
     }
   }
 
   // A failed request leaves the count out, so nothing wrong is shown.
   async function loadFlagCount(key: FlagKey) {
-    flagControllers[key]?.abort()
-    const controller = new AbortController()
-    flagControllers[key] = controller
+    const request = requests.start(`flag:${key}`)
 
     try {
-      const count = await api.getFlagCount(key, filterParams.value, { signal: controller.signal })
-      if (!controller.signal.aborted) flagCounts.value[key] = count
+      const count = await api.getFlagCount(key, filterParams.value, { signal: request.signal })
+      if (request.isCurrent()) flagCounts.value[key] = count
     } catch {
-      if (!controller.signal.aborted) flagCounts.value[key] = undefined
+      if (request.isCurrent()) flagCounts.value[key] = undefined
     }
   }
 
   // Loads one instrument for the details. A missing one is reported apart from other failures.
   async function loadInstrument(id: string) {
-    instrumentController?.abort()
-    const controller = new AbortController()
-    instrumentController = controller
+    const request = requests.start('instrument')
 
     instrument.value = null
     instrumentStatus.value = DETAIL_STATUS.LOADING
 
     try {
-      const found = await api.getInstrument(id, { signal: controller.signal })
-      if (controller.signal.aborted) return
+      const found = await api.getInstrument(id, { signal: request.signal })
+      if (!request.isCurrent()) return
       instrument.value = found
       instrumentStatus.value = DETAIL_STATUS.SUCCESS
     } catch (caught) {
-      if (controller.signal.aborted) return
+      if (!request.isCurrent()) return
       instrumentStatus.value =
         caught instanceof HttpError && caught.status === 404
           ? DETAIL_STATUS.NOT_FOUND
@@ -257,7 +238,7 @@ export const useSearchStore = defineStore('search', () => {
   }
 
   function clearInstrument() {
-    instrumentController?.abort()
+    requests.cancel('instrument')
     instrument.value = null
     instrumentStatus.value = DETAIL_STATUS.IDLE
   }
@@ -279,7 +260,6 @@ export const useSearchStore = defineStore('search', () => {
     flagCounts,
     instrument,
     instrumentStatus,
-    totalPages,
     isEmpty,
     search,
     setQuery,

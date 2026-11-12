@@ -229,14 +229,6 @@ describe('search store', () => {
   })
 
   describe('computed state', () => {
-    it('totalPages rounds up from count and page size', async () => {
-      api.search.mockResolvedValue(searchResponse([A200], 31))
-
-      await store.search()
-
-      expect(store.totalPages).toBe(3)
-    })
-
     it('isEmpty is true only for a successful search with no results', async () => {
       expect(store.isEmpty).toBe(false)
 
@@ -301,10 +293,7 @@ describe('search store', () => {
     it('loads suggestions for the text', async () => {
       await store.loadSuggestions('a200')
 
-      expect(api.getSuggestions).toHaveBeenCalledWith('a200', {
-        size: 5,
-        signal: expect.any(AbortSignal),
-      })
+      expect(api.getSuggestions).toHaveBeenCalledWith('a200', { signal: expect.any(AbortSignal) })
       expect(store.suggestions).toEqual([A200])
     })
 
@@ -319,7 +308,7 @@ describe('search store', () => {
       expect(api.getFacetCounts).toHaveBeenCalledWith(
         'kind',
         { text: 'bank' },
-        { omitEmptyCounts: true, signal: expect.any(AbortSignal) },
+        { signal: expect.any(AbortSignal) },
       )
       expect(store.suggestionKinds).toEqual([
         { value: 'etf', count: 8 },
@@ -414,7 +403,7 @@ describe('search store', () => {
       expect(api.getFacetCounts).toHaveBeenCalledWith(
         'kind',
         { text: 'bonds', filters: { ...noFilters, isBetashares: true } },
-        { omitEmptyCounts: true, signal: expect.any(AbortSignal) },
+        { signal: expect.any(AbortSignal) },
       )
       expect(store.facets.kind).toEqual([{ value: 'etf', count: 5 }])
     })

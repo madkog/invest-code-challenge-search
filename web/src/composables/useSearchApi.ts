@@ -10,10 +10,13 @@ import type {
   Sort,
   Suggestion,
 } from '../types/search'
-import { buildUrl, request } from '../utils/httpClient'
+import { buildUrl, request, type QueryParams } from '../utils/httpClient'
 
 const BASE_URL = '/api'
 const SUGGESTION_SIZE = 6
+const FLAGSHIP_SIZE = 4
+// The fields a suggestion needs, so suggestion requests stay small.
+const SUGGESTION_FIELDS = ['symbol', 'symbol_openfigi', 'display_name', 'kind', 'issuer'] as const
 
 // --- The API's data format. Nothing outside this file should know about it. ---
 
@@ -33,10 +36,7 @@ interface ApiInstrument {
   units_circulating: string | null
 }
 
-type ApiSuggestion = Pick<
-  ApiInstrument,
-  'symbol' | 'symbol_openfigi' | 'display_name' | 'kind' | 'issuer'
->
+type ApiSuggestion = Pick<ApiInstrument, (typeof SUGGESTION_FIELDS)[number]>
 
 // The API sends every facet value as text, including "true" and "false" for yes/no filters.
 interface ApiFacetCount {
@@ -63,11 +63,6 @@ interface ApiSearchQuery {
   size?: number
 }
 
-const API_FACET_KEYS: Record<FacetKey, string> = {
-  kind: 'kind',
-  issuer: 'issuer',
-}
-
 const API_KINDS: Record<Kind, string> = {
   etf: 'etf',
   share: 'equity',
@@ -85,9 +80,8 @@ const API_SORT_FIELDS: Record<Sort['field'], string> = {
   unitsCirculating: 'units_circulating',
 }
 
-const SUGGESTION_FIELDS = ['symbol', 'symbol_openfigi', 'display_name', 'kind', 'issuer']
-const FLAGSHIP_SIZE = 4
-const FLAG_FILTERS = ['isBetashares', 'isFlagshipFund', 'isAutoInvestIncluded'] as const
+// The yes/no filter keys, taken from the map above so they cannot drift apart.
+const FLAG_KEYS = Object.keys(API_FLAG_KEYS) as FlagKey[]
 
 // --- Translating the app's params into the API's request body ---
 
@@ -96,7 +90,7 @@ function buildFilterQuery(filters: Partial<Filters>): ApiSearchQuery {
   const query: ApiSearchQuery = {}
   if (filters.kind?.length) query.kind = filters.kind.map((kind) => API_KINDS[kind])
   if (filters.issuer?.length) query.issuer = filters.issuer
-  for (const key of FLAG_FILTERS) {
+  for (const key of FLAG_KEYS) {
     const value = filters[key]
     if (value !== undefined && value !== null) query[API_FLAG_KEYS[key]] = { value }
   }
@@ -104,13 +98,12 @@ function buildFilterQuery(filters: Partial<Filters>): ApiSearchQuery {
 }
 
 function buildSearchQuery({ text, filters, sort, page, size }: SearchParams): ApiSearchQuery {
-  return {
-    ...(text ? { search_text: text } : {}),
-    ...(filters ? buildFilterQuery(filters) : {}),
-    ...(sort ? { order_by: `${API_SORT_FIELDS[sort.field]}.${sort.direction}` } : {}),
-    ...(page !== undefined ? { from: page } : {}),
-    ...(size !== undefined ? { size } : {}),
-  }
+  const query: ApiSearchQuery = filters ? buildFilterQuery(filters) : {}
+  if (text) query.search_text = text
+  if (sort) query.order_by = `${API_SORT_FIELDS[sort.field]}.${sort.direction}`
+  if (page !== undefined) query.from = page
+  if (size !== undefined) query.size = size
+  return query
 }
 
 // --- Translating the API's responses into the app's types ---
@@ -137,6 +130,15 @@ function toInstrument(api: ApiInstrument): Instrument {
   }
 }
 
+// Facet values are text. Kind values are turned into the app's kinds; others are kept as they are.
+function toFacetCount(key: FacetKey, api: ApiFacetCount): FacetCount {
+  return { value: key === 'kind' ? toKind(api.value) : api.value, count: api.count }
+}
+
+function mapResults<A, T>(response: ApiSearchResponse<A>, map: (api: A) => T): SearchResponse<T> {
+  return { results: response.results.map(map), count: response.count }
+}
+
 function toSuggestion(api: ApiSuggestion): Suggestion {
   return {
     id: api.symbol_openfigi,
@@ -153,16 +155,26 @@ interface ApiOptions {
   signal?: AbortSignal
 }
 
-function endpoint(path: string, params?: Parameters<typeof buildUrl>[1]): string {
+function endpoint(path: string, params?: QueryParams): string {
   return `${BASE_URL}${buildUrl(path, params)}`
 }
 
 // POST /search. `fields` limits which fields come back on each result.
 function postSearch<T>(
   params: SearchParams,
-  { fields, signal }: ApiOptions & { fields?: string[] } = {},
+  { fields, signal }: ApiOptions & { fields?: readonly string[] } = {},
 ): Promise<ApiSearchResponse<T>> {
   const url = endpoint('/search', { fields: fields?.join(',') })
+  return request(url, { method: 'POST', body: buildSearchQuery(params), signal })
+}
+
+// POST /facets/:key. Values with no matches are left out of the counts.
+function postFacets(
+  apiKey: string,
+  params: SearchParams,
+  { signal }: ApiOptions = {},
+): Promise<ApiFacetCount[]> {
+  const url = endpoint(`/facets/${apiKey}`, { omit_empty_counts: 'true' })
   return request(url, { method: 'POST', body: buildSearchQuery(params), signal })
 }
 
@@ -175,50 +187,39 @@ export function useSearchApi() {
     params: SearchParams = {},
     { signal }: ApiOptions = {},
   ): Promise<SearchResponse<Instrument>> {
-    const response = await postSearch<ApiInstrument>(params, { signal })
-    return { results: response.results.map(toInstrument), count: response.count }
+    return mapResults(await postSearch<ApiInstrument>(params, { signal }), toInstrument)
   }
 
   async function getSuggestions(
     text: string,
-    { size = SUGGESTION_SIZE, signal }: ApiOptions & { size?: number } = {},
+    { signal }: ApiOptions = {},
   ): Promise<SearchResponse<Suggestion>> {
     const response = await postSearch<ApiSuggestion>(
-      { text, size },
+      { text, size: SUGGESTION_SIZE },
       { fields: SUGGESTION_FIELDS, signal },
     )
-    return { results: response.results.map(toSuggestion), count: response.count }
+    return mapResults(response, toSuggestion)
   }
 
   // The flagship funds, as suggestions for an empty search box.
-  async function getFlagshipFunds({
-    size = FLAGSHIP_SIZE,
-    signal,
-  }: ApiOptions & { size?: number } = {}): Promise<SearchResponse<Suggestion>> {
+  async function getFlagshipFunds({ signal }: ApiOptions = {}): Promise<
+    SearchResponse<Suggestion>
+  > {
     const response = await postSearch<ApiSuggestion>(
-      { filters: { isFlagshipFund: true }, size },
+      { filters: { isFlagshipFund: true }, size: FLAGSHIP_SIZE },
       { fields: SUGGESTION_FIELDS, signal },
     )
-    return { results: response.results.map(toSuggestion), count: response.count }
+    return mapResults(response, toSuggestion)
   }
 
   // Filter options with counts, for the given text and filters.
   async function getFacetCounts(
     key: FacetKey,
     params: SearchParams = {},
-    { omitEmptyCounts = false, signal }: ApiOptions & { omitEmptyCounts?: boolean } = {},
+    { signal }: ApiOptions = {},
   ): Promise<FacetCount[]> {
-    const url = endpoint(`/facets/${API_FACET_KEYS[key]}`, {
-      omit_empty_counts: omitEmptyCounts ? 'true' : undefined,
-    })
-    const counts = await request<FacetCount[]>(url, {
-      method: 'POST',
-      body: buildSearchQuery(params),
-      signal,
-    })
-    return key === 'kind'
-      ? counts.map((entry) => ({ ...entry, value: toKind(entry.value) }))
-      : counts
+    const counts = await postFacets(key, params, { signal })
+    return counts.map((entry) => toFacetCount(key, entry))
   }
 
   // How many results have a yes/no filter switched on, for the given text and filters.
@@ -227,12 +228,7 @@ export function useSearchApi() {
     params: SearchParams = {},
     { signal }: ApiOptions = {},
   ): Promise<number> {
-    const url = endpoint(`/facets/${API_FLAG_KEYS[key]}`)
-    const counts = await request<ApiFacetCount[]>(url, {
-      method: 'POST',
-      body: buildSearchQuery(params),
-      signal,
-    })
+    const counts = await postFacets(API_FLAG_KEYS[key], params, { signal })
     return counts.find((entry) => entry.value === 'true')?.count ?? 0
   }
 

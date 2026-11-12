@@ -215,18 +215,12 @@ describe('useSearchApi', () => {
   })
 
   describe('getSuggestions', () => {
-    it('searches with light fields and the given text and size', async () => {
-      await api.getSuggestions('vas', { size: 5 })
+    it('searches for 6 matches for the text, with light fields', async () => {
+      await api.getSuggestions('vas')
 
       expect(lastCall().url).toBe(
         '/api/search?fields=symbol%2Csymbol_openfigi%2Cdisplay_name%2Ckind%2Cissuer',
       )
-      expect(sentBody()).toEqual({ search_text: 'vas', size: 5 })
-    })
-
-    it('defaults the size to 6', async () => {
-      await api.getSuggestions('vas')
-
       expect(sentBody()).toEqual({ search_text: 'vas', size: 6 })
     })
 
@@ -280,12 +274,6 @@ describe('useSearchApi', () => {
       expect(sentBody()).toEqual({ is_flagship_fund: { value: true }, size: 4 })
     })
 
-    it('uses the size it is given', async () => {
-      await api.getFlagshipFunds({ size: 2 })
-
-      expect(sentBody()).toEqual({ is_flagship_fund: { value: true }, size: 2 })
-    })
-
     it('returns the suggestions in the app format', async () => {
       fetchMock.mockResolvedValue(
         jsonResponse({
@@ -331,15 +319,9 @@ describe('useSearchApi', () => {
       })
 
       const { url, options } = lastCall()
-      expect(url).toBe('/api/facets/kind')
+      expect(url).toBe('/api/facets/kind?omit_empty_counts=true')
       expect(options.method).toBe('POST')
       expect(sentBody()).toEqual({ search_text: 'bonds', is_betashares: { value: true } })
-    })
-
-    it('adds omit_empty_counts when asked', async () => {
-      await api.getFacetCounts('issuer', {}, { omitEmptyCounts: true })
-
-      expect(lastCall().url).toBe('/api/facets/issuer?omit_empty_counts=true')
     })
 
     it('returns the counts', async () => {
@@ -376,18 +358,18 @@ describe('useSearchApi', () => {
       })
 
       const { url, options } = lastCall()
-      expect(url).toBe('/api/facets/is_betashares')
+      expect(url).toBe('/api/facets/is_betashares?omit_empty_counts=true')
       expect(options.method).toBe('POST')
       expect(sentBody()).toEqual({ search_text: 'bonds', kind: ['etf'] })
     })
 
     it('uses the API name for every flag', async () => {
       await api.getFlagCount('isFlagshipFund')
-      expect(lastCall().url).toBe('/api/facets/is_flagship_fund')
+      expect(lastCall().url).toBe('/api/facets/is_flagship_fund?omit_empty_counts=true')
 
       fetchMock.mockClear()
       await api.getFlagCount('isAutoInvestIncluded')
-      expect(lastCall().url).toBe('/api/facets/is_auto_invest_included')
+      expect(lastCall().url).toBe('/api/facets/is_auto_invest_included?omit_empty_counts=true')
     })
 
     it('returns how many results have the flag on', async () => {
