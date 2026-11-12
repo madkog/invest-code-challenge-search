@@ -58,8 +58,11 @@ _Update this to match the final folders._
 ```
 src/
   composables/  # API composable, debounce, keyboard handling
+  utils/        # HTTP client
   stores/       # Pinia search store
   pages/        # SearchPage
+  theme/        # PrimeVue preset
+  types/        # shared types
   components/   # generic building blocks and search components
   App.vue
 ```
@@ -81,9 +84,9 @@ The app is built layer by layer, from the data upward, and each layer ships with
 
 Notes I made while building each layer.
 
-1. **API composable.** Used the base search call with a filter for suggestions. Thought about caching but left it for the moment as the data is in memory. May refactor once implementing, but fine for starters.
+1. **API composable.** Used the base search call with a filter for suggestions. Thought about caching but left it for the moment as the data is in memory. May refactor once implementing, but fine for starters. The composable takes the app's own params (`text`, `filters`, `sort`, `page`, `size`) and builds the API request body itself, so the store never sees `search_text` or `{ value }` booleans. I first had a separate filter helper that the store used, then moved it into the composable so only one file knows the request format.
 2. **Pinia store.** Started with watchers and `onWatcherCleanup` (Vue's built-in cancellation), then chose explicit actions with a plain `AbortController` per kind of request. The actions are easier to trace and test, because each one visibly sends its request and returns a promise. Hand-written cancel logic is a few lines, so I did not add a library such as Vue Query. I also tested the store by hand in the browser console against the running mock API: search, query, filters (including `is_betashares: false`), sort, paging, the 400 error and recovery, suggestions and facets. Request cancellation is covered by the unit tests.
-3. **Search page.** _No comments yet._
+3. **Search page.** Only a layout skeleton for now: a heading, empty regions for the search input, filters and results (filled in steps 4 and 5), and a temporary status line wired to the store. Added PrimeVue with the default Aura theme so it can be seen working, with dark mode off. Converted everything to TypeScript so the page, store and API share types.
 4. **Generic components.** _No comments yet._
 5. **Component implementations.** _No comments yet._
 6. **Theming.** _No comments yet._

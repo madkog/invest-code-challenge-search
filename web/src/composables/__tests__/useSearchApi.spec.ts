@@ -1,17 +1,20 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest'
 
+import type { Filters } from '../../types/search'
 import { useSearchApi } from '../useSearchApi'
 
-function jsonResponse(body, status = 200) {
+const noFilters: Filters = { kind: [], issuer: [], is_betashares: null, is_flagship_fund: null }
+
+function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status })
 }
 
 describe('useSearchApi', () => {
-  let fetchMock
-  let api
+  let fetchMock: Mock<typeof fetch>
+  let api: ReturnType<typeof useSearchApi>
 
   beforeEach(() => {
-    fetchMock = vi.fn().mockResolvedValue(jsonResponse({ results: [], count: 0 }))
+    fetchMock = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse({ results: [], count: 0 }))
     vi.stubGlobal('fetch', fetchMock)
     api = useSearchApi()
   })
@@ -21,30 +24,62 @@ describe('useSearchApi', () => {
   })
 
   function lastCall() {
-    const [url, options] = fetchMock.mock.calls[0]
-    return { url, options }
+    const call = fetchMock.mock.calls[0]
+    if (!call) throw new Error('fetch was not called')
+    const [url, options = {}] = call
+    return { url: String(url), options }
   }
 
   describe('search', () => {
-    it('POSTs the query as JSON to /api/search', async () => {
-      const query = {
-        search_text: 'a200',
-        kind: ['etf'],
-        order_by: 'symbol.asc',
-        from: 1,
+    it('POSTs the params as an API request body to /api/search', async () => {
+      await api.search({
+        text: 'a200',
+        filters: { ...noFilters, kind: ['etf'] },
+        sort: 'symbol.asc',
+        page: 1,
         size: 10,
-      }
-
-      await api.search(query)
+      })
 
       const { url, options } = lastCall()
       expect(url).toBe('/api/search')
       expect(options.method).toBe('POST')
       expect(options.headers).toEqual({ 'Content-Type': 'application/json' })
-      expect(JSON.parse(options.body)).toEqual(query)
+      expect(JSON.parse(String(options.body))).toEqual({
+        search_text: 'a200',
+        kind: ['etf'],
+        order_by: 'symbol.asc',
+        from: 1,
+        size: 10,
+      })
     })
 
-    it('sends an empty object when there is no query', async () => {
+    it('sends multi-select filters as lists', async () => {
+      await api.search({
+        filters: { ...noFilters, kind: ['etf'], issuer: ['betashares', 'vaneck'] },
+      })
+
+      expect(JSON.parse(String(lastCall().options.body))).toEqual({
+        kind: ['etf'],
+        issuer: ['betashares', 'vaneck'],
+      })
+    })
+
+    it('sends booleans as { value } and keeps false', async () => {
+      await api.search({ filters: { ...noFilters, is_betashares: true, is_flagship_fund: false } })
+
+      expect(JSON.parse(String(lastCall().options.body))).toEqual({
+        is_betashares: { value: true },
+        is_flagship_fund: { value: false },
+      })
+    })
+
+    it('leaves out blank text and sort, empty lists and unset booleans', async () => {
+      await api.search({ text: '', filters: noFilters, sort: '', page: 2 })
+
+      expect(JSON.parse(String(lastCall().options.body))).toEqual({ from: 2 })
+    })
+
+    it('sends an empty object when there are no params', async () => {
       await api.search()
 
       expect(lastCall().options.body).toBe('{}')
@@ -60,21 +95,21 @@ describe('useSearchApi', () => {
       const body = { results: [{ symbol: 'A200' }], count: 1, indexed_at: 1 }
       fetchMock.mockResolvedValue(jsonResponse(body))
 
-      expect(await api.search({ search_text: 'a200' })).toEqual(body)
+      expect(await api.search({ text: 'a200' })).toEqual(body)
     })
 
     it('can be aborted with the signal', async () => {
       fetchMock.mockImplementation(
-        (_url, { signal }) =>
-          new Promise((_resolve, reject) => {
-            signal.addEventListener('abort', () => {
+        (_url, options) =>
+          new Promise<Response>((_resolve, reject) => {
+            options?.signal?.addEventListener('abort', () => {
               reject(new DOMException('The operation was aborted.', 'AbortError'))
             })
           }),
       )
       const controller = new AbortController()
 
-      const promise = api.search({ search_text: 'a' }, { signal: controller.signal })
+      const promise = api.search({ text: 'a' }, { signal: controller.signal })
       controller.abort()
 
       await expect(promise).rejects.toMatchObject({ name: 'AbortError' })
@@ -87,26 +122,30 @@ describe('useSearchApi', () => {
 
       const { url, options } = lastCall()
       expect(url).toBe('/api/search?fields=symbol%2Cdisplay_name')
-      expect(JSON.parse(options.body)).toEqual({ search_text: 'vas', size: 5 })
+      expect(JSON.parse(String(options.body))).toEqual({ search_text: 'vas', size: 5 })
     })
 
     it('defaults the size to 6', async () => {
       await api.getSuggestions('vas')
 
-      expect(JSON.parse(lastCall().options.body)).toEqual({ search_text: 'vas', size: 6 })
+      expect(JSON.parse(String(lastCall().options.body))).toEqual({ search_text: 'vas', size: 6 })
     })
   })
 
   describe('getFacetCounts', () => {
-    it('POSTs the query to /api/facets/:key', async () => {
-      const query = { search_text: 'bonds' }
-
-      await api.getFacetCounts('kind', query)
+    it('POSTs the text and filters to /api/facets/:key', async () => {
+      await api.getFacetCounts('kind', {
+        text: 'bonds',
+        filters: { ...noFilters, is_betashares: true },
+      })
 
       const { url, options } = lastCall()
       expect(url).toBe('/api/facets/kind')
       expect(options.method).toBe('POST')
-      expect(JSON.parse(options.body)).toEqual(query)
+      expect(JSON.parse(String(options.body))).toEqual({
+        search_text: 'bonds',
+        is_betashares: { value: true },
+      })
     })
 
     it('adds omit_empty_counts when asked', async () => {
@@ -153,7 +192,7 @@ describe('useSearchApi', () => {
     it('throws the API message and status for a non-OK response', async () => {
       fetchMock.mockResolvedValue(jsonResponse({ message: 'Bad query' }, 400))
 
-      await expect(api.search({ from: -1 })).rejects.toMatchObject({
+      await expect(api.search({ page: -1 })).rejects.toMatchObject({
         message: 'Bad query',
         status: 400,
       })

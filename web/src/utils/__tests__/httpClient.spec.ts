@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest'
 
 import { buildUrl, request } from '../httpClient'
 
@@ -17,19 +17,19 @@ describe('buildUrl', () => {
 })
 
 // Like the real fetch: rejects with an AbortError when the signal aborts.
-function fetchThatHonoursSignal(_url, { signal }) {
+function fetchThatHonoursSignal(_url: unknown, options?: RequestInit): Promise<Response> {
   return new Promise((_resolve, reject) => {
-    signal.addEventListener('abort', () => {
+    options?.signal?.addEventListener('abort', () => {
       reject(new DOMException('The operation was aborted.', 'AbortError'))
     })
   })
 }
 
 describe('request', () => {
-  let fetchMock
+  let fetchMock: Mock<typeof fetch>
 
   beforeEach(() => {
-    fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ ok: true })))
+    fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({ ok: true })))
     vi.stubGlobal('fetch', fetchMock)
   })
 
@@ -37,10 +37,17 @@ describe('request', () => {
     vi.unstubAllGlobals()
   })
 
+  function lastCall() {
+    const call = fetchMock.mock.calls[0]
+    if (!call) throw new Error('fetch was not called')
+    const [url, options = {}] = call
+    return { url, options }
+  }
+
   it('GETs without a body or headers by default', async () => {
     expect(await request('/x')).toEqual({ ok: true })
 
-    const [url, options] = fetchMock.mock.calls[0]
+    const { url, options } = lastCall()
     expect(url).toBe('/x')
     expect(options.method).toBe('GET')
     expect(options.body).toBeUndefined()
@@ -50,7 +57,7 @@ describe('request', () => {
   it('sends a JSON body with a content type', async () => {
     await request('/x', { method: 'POST', body: { a: 1 } })
 
-    const options = fetchMock.mock.calls[0][1]
+    const { options } = lastCall()
     expect(options.headers).toEqual({ 'Content-Type': 'application/json' })
     expect(options.body).toBe('{"a":1}')
   })

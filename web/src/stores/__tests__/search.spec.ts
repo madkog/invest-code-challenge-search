@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 
 import { useSearchStore } from '../search'
@@ -11,20 +11,29 @@ const api = vi.hoisted(() => ({
 
 vi.mock('../../composables/useSearchApi', () => ({ useSearchApi: () => api }))
 
+const noFilters = { kind: [], issuer: [], is_betashares: null, is_flagship_fund: null }
+
 const A200 = { symbol: 'A200', display_name: 'Betashares Australia 200 ETF' }
 
-function searchResponse(results = [A200], count = results.length) {
+function searchResponse(results: object[] = [A200], count = results.length) {
   return { results, count, indexed_at: 1 }
 }
 
 // A promise the test resolves or rejects by hand, to control the order responses arrive in.
-function deferred() {
-  const handlers = {}
-  const promise = new Promise((resolve, reject) => {
-    handlers.resolve = resolve
-    handlers.reject = reject
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res
+    reject = rej
   })
-  return { promise, ...handlers }
+  return { promise, resolve, reject }
+}
+
+// The AbortSignal an API function was called with. The options object is always the last argument.
+function signalOf(mock: Mock, callIndex: number): AbortSignal {
+  const args = mock.mock.calls[callIndex] ?? []
+  return (args[args.length - 1] as { signal: AbortSignal }).signal
 }
 
 function abortError() {
@@ -32,7 +41,7 @@ function abortError() {
 }
 
 describe('search store', () => {
-  let store
+  let store: ReturnType<typeof useSearchStore>
 
   beforeEach(() => {
     vi.resetAllMocks()
@@ -44,7 +53,8 @@ describe('search store', () => {
   })
 
   function lastSearchQuery() {
-    return api.search.mock.calls.at(-1)[0]
+    const calls = api.search.mock.calls
+    return calls[calls.length - 1]?.[0]
   }
 
   describe('initial state', () => {
@@ -67,10 +77,16 @@ describe('search store', () => {
   })
 
   describe('search', () => {
-    it('sends the page and size only when nothing else is set', async () => {
+    it('sends the first page and default size with no text, filters or sort', async () => {
       await store.search()
 
-      expect(lastSearchQuery()).toEqual({ from: 1, size: 15 })
+      expect(lastSearchQuery()).toEqual({
+        text: '',
+        filters: noFilters,
+        sort: '',
+        page: 1,
+        size: 15,
+      })
     })
 
     it('stores the results and count and ends as success', async () => {
@@ -119,11 +135,11 @@ describe('search store', () => {
   })
 
   describe('query, filters and sort', () => {
-    it('setQuery sends search_text', async () => {
+    it('setQuery sends the text', async () => {
       await store.setQuery('a200')
 
       expect(store.query).toBe('a200')
-      expect(lastSearchQuery()).toEqual({ search_text: 'a200', from: 1, size: 15 })
+      expect(lastSearchQuery()).toMatchObject({ text: 'a200', page: 1 })
     })
 
     it('setFilter sends multi-select filters as lists', async () => {
@@ -131,32 +147,30 @@ describe('search store', () => {
       await store.setFilter('issuer', ['betashares', 'vaneck'])
 
       expect(lastSearchQuery()).toMatchObject({
-        kind: ['etf'],
-        issuer: ['betashares', 'vaneck'],
+        filters: { kind: ['etf'], issuer: ['betashares', 'vaneck'] },
       })
     })
 
-    it('setFilter sends booleans as { value } and keeps false', async () => {
+    it('setFilter keeps a false boolean', async () => {
       await store.setFilter('is_betashares', true)
       await store.setFilter('is_flagship_fund', false)
 
       expect(lastSearchQuery()).toMatchObject({
-        is_betashares: { value: true },
-        is_flagship_fund: { value: false },
+        filters: { is_betashares: true, is_flagship_fund: false },
       })
     })
 
-    it('setSort sends order_by', async () => {
+    it('setSort sends the sort', async () => {
       await store.setSort('symbol.asc')
 
-      expect(lastSearchQuery()).toMatchObject({ order_by: 'symbol.asc' })
+      expect(lastSearchQuery()).toMatchObject({ sort: 'symbol.asc' })
     })
 
-    it('setPage sends it as a 1-based from', async () => {
+    it('setPage sends the 1-based page', async () => {
       await store.setPage(3)
 
       expect(store.page).toBe(3)
-      expect(lastSearchQuery()).toMatchObject({ from: 3 })
+      expect(lastSearchQuery()).toMatchObject({ page: 3 })
     })
 
     it.each([
@@ -170,7 +184,7 @@ describe('search store', () => {
       await action()
 
       expect(store.page).toBe(1)
-      expect(lastSearchQuery()).toMatchObject({ from: 1 })
+      expect(lastSearchQuery()).toMatchObject({ page: 1 })
     })
 
     it('clearFilters resets every filter but keeps the query and sort', async () => {
@@ -182,9 +196,10 @@ describe('search store', () => {
       await store.clearFilters()
 
       expect(lastSearchQuery()).toEqual({
-        search_text: 'bonds',
-        order_by: 'symbol.asc',
-        from: 1,
+        text: 'bonds',
+        filters: noFilters,
+        sort: 'symbol.asc',
+        page: 1,
         size: 15,
       })
     })
@@ -219,10 +234,8 @@ describe('search store', () => {
       store.search()
       store.search()
 
-      const [, firstOptions] = api.search.mock.calls[0]
-      const [, secondOptions] = api.search.mock.calls[1]
-      expect(firstOptions.signal.aborted).toBe(true)
-      expect(secondOptions.signal.aborted).toBe(false)
+      expect(signalOf(api.search, 0).aborted).toBe(true)
+      expect(signalOf(api.search, 1).aborted).toBe(false)
     })
 
     it('ignores an older response that arrives after a newer one', async () => {
@@ -336,7 +349,7 @@ describe('search store', () => {
 
       expect(api.getFacetCounts).toHaveBeenCalledWith(
         'kind',
-        { search_text: 'bonds', is_betashares: { value: true } },
+        { text: 'bonds', filters: { ...noFilters, is_betashares: true } },
         { omitEmptyCounts: true, signal: expect.any(AbortSignal) },
       )
       expect(store.facets.kind).toEqual([{ value: 'etf', count: 5 }])
@@ -362,10 +375,8 @@ describe('search store', () => {
       store.loadFacet('kind')
       store.loadFacet('kind')
 
-      const [, , firstOptions] = api.getFacetCounts.mock.calls[0]
-      const [, , secondOptions] = api.getFacetCounts.mock.calls[1]
-      expect(firstOptions.signal.aborted).toBe(true)
-      expect(secondOptions.signal.aborted).toBe(false)
+      expect(signalOf(api.getFacetCounts, 0).aborted).toBe(true)
+      expect(signalOf(api.getFacetCounts, 1).aborted).toBe(false)
     })
 
     it('does not abort the request for a different key', () => {
@@ -374,8 +385,7 @@ describe('search store', () => {
       store.loadFacet('kind')
       store.loadFacet('issuer')
 
-      const [, , firstOptions] = api.getFacetCounts.mock.calls[0]
-      expect(firstOptions.signal.aborted).toBe(false)
+      expect(signalOf(api.getFacetCounts, 0).aborted).toBe(false)
     })
 
     it('shows no options for a key when its request fails', async () => {
