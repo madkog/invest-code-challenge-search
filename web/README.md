@@ -82,7 +82,7 @@ The app is built layer by layer, from the data upward, and each layer ships with
 Notes I made while building each layer.
 
 1. **API composable.** Used the base search call with a filter for suggestions. Thought about caching but left it for the moment as the data is in memory. May refactor once implementing, but fine for starters.
-2. **Pinia store.** _No comments yet._
+2. **Pinia store.** Started with watchers and `onWatcherCleanup` (Vue's built-in cancellation), then chose explicit actions with a plain `AbortController` per kind of request. The actions are easier to trace and test, because each one visibly sends its request and returns a promise. Hand-written cancel logic is a few lines, so I did not add a library such as Vue Query. I also tested the store by hand in the browser console against the running mock API: search, query, filters (including `is_betashares: false`), sort, paging, the 400 error and recovery, suggestions and facets. Request cancellation is covered by the unit tests.
 3. **Search page.** _No comments yet._
 4. **Generic components.** _No comments yet._
 5. **Component implementations.** _No comments yet._
