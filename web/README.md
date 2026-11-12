@@ -77,6 +77,19 @@ The app is built layer by layer, from the data upward, and each layer ships with
 7. **Storybook.** Stories for every component in its key states (empty, suggestions, loading, results, no results, error). _Checks:_ stories double as visual references.
 8. **Playwright.** End-to-end flows against the mock API: search, pick a suggestion, filter, sort, paginate and no results. _Tests:_ the e2e suite.
 
+### Comments during build
+
+Notes I made while building each layer.
+
+1. **API composable.** Used the base search call with a filter for suggestions. Thought about caching but left it for the moment as the data is in memory. May refactor once implementing, but fine for starters.
+2. **Pinia store.** _No comments yet._
+3. **Search page.** _No comments yet._
+4. **Generic components.** _No comments yet._
+5. **Component implementations.** _No comments yet._
+6. **Theming.** _No comments yet._
+7. **Storybook.** _No comments yet._
+8. **Playwright.** _No comments yet._
+
 ### Search flow
 
 Typing updates the store (debounced) and the store calls `/search` through the API composable. The suggestion list uses a light request (`?fields=symbol,display_name`). Choosing a filter, sort or page updates the store and the results refresh. `from` in the API is 1-based, and the page converts the paginator's 0-based position.
