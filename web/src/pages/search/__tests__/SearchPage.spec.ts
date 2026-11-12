@@ -314,6 +314,67 @@ describe('SearchPage', () => {
     })
   })
 
+  describe('sorting by shares on issue with ETFs', () => {
+    it('offers the sort while shares are included', () => {
+      const units = wrapper
+        .getComponent(ResultsToolbar)
+        .props('sortOptions')
+        .find((option) => option.value === 'units-desc')!
+
+      expect(units.disabled).toBe(false)
+    })
+
+    it('disables it, and says why, when only ETFs are shown', async () => {
+      store.filters = { ...store.filters, kind: ['etf'] }
+      await nextTick()
+
+      const units = wrapper
+        .getComponent(ResultsToolbar)
+        .props('sortOptions')
+        .find((option) => option.value === 'units-desc')!
+      expect(units.disabled).toBe(true)
+      expect(units.label).toBe('Most shares on issue (shares only)')
+    })
+
+    it('goes back to the default order when ETFs are chosen while sorted by shares on issue', async () => {
+      store.sortBy = { field: 'unitsCirculating', direction: 'desc' }
+      await nextTick()
+
+      wrapper.getComponent(FilterPanel).vm.$emit('update:kind', ['etf'])
+
+      expect(store.setSort).toHaveBeenCalledWith(null)
+      expect(store.setFilter).toHaveBeenCalledWith('kind', ['etf'])
+    })
+
+    it('does the same when "in ETFs" is picked in the search box', async () => {
+      store.sortBy = { field: 'unitsCirculating', direction: 'desc' }
+      await nextTick()
+
+      wrapper.getComponent(SearchBox).vm.$emit('search', { text: 'bank', kind: 'etf' })
+
+      expect(store.setSort).toHaveBeenCalledWith(null)
+    })
+
+    it('keeps another sort when ETFs are chosen', async () => {
+      store.sortBy = { field: 'name', direction: 'asc' }
+      await nextTick()
+
+      wrapper.getComponent(FilterPanel).vm.$emit('update:kind', ['etf'])
+
+      expect(store.setSort).not.toHaveBeenCalled()
+    })
+
+    it('keeps the sort when shares, or all kinds, are chosen', async () => {
+      store.sortBy = { field: 'unitsCirculating', direction: 'desc' }
+      await nextTick()
+
+      wrapper.getComponent(FilterPanel).vm.$emit('update:kind', ['share'])
+      wrapper.getComponent(FilterPanel).vm.$emit('update:kind', [])
+
+      expect(store.setSort).not.toHaveBeenCalled()
+    })
+  })
+
   describe('results', () => {
     it('shows a row for each result, with the search words to highlight', async () => {
       store.query = 'bank OR gold'

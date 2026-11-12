@@ -37,6 +37,15 @@ describe('SortSelect', () => {
     expect(wrapper.text()).toContain('Ticker A to Z')
   })
 
+  it('lets the select disable an option that is marked disabled', () => {
+    const wrapper = mount(SortSelect, {
+      props: { modelValue: '', options: [...options, { value: 'x', label: 'X', disabled: true }] },
+      global: withPrimeVue,
+    })
+
+    expect(wrapper.getComponent(Select).props('optionDisabled')).toBe('disabled')
+  })
+
   it('reports a new choice', () => {
     const wrapper = mount(SortSelect, { props: { modelValue: '', options }, global: withPrimeVue })
 

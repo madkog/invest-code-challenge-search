@@ -27,6 +27,7 @@ const inputId = useId()
       :options="options"
       option-label="label"
       option-value="value"
+      option-disabled="disabled"
       size="small"
       @update:model-value="$emit('update:modelValue', $event)"
     />

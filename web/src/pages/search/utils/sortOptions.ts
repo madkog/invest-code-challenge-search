@@ -23,13 +23,18 @@ export function sortToId(sort: Sort | null): SortId {
   return match ?? 'best'
 }
 
-// Without a search, "no sort" means Betashares funds first, not best match.
-export function buildSortOptions(hasQuery: boolean): Option[] {
+// Without a search, "no sort" means Betashares funds first, not best match. Only shares report
+// shares on issue, so with ETFs only that sort has nothing to sort by and is not offered.
+export function buildSortOptions(hasQuery: boolean, etfsOnly = false): Option[] {
   return [
     { value: 'best', label: hasQuery ? 'Best match' : 'Betashares first' },
     { value: 'symbol-asc', label: 'Ticker A to Z' },
     { value: 'symbol-desc', label: 'Ticker Z to A' },
     { value: 'name-asc', label: 'Name A to Z' },
-    { value: 'units-desc', label: 'Most shares on issue' },
+    {
+      value: 'units-desc',
+      label: etfsOnly ? 'Most shares on issue (shares only)' : 'Most shares on issue',
+      disabled: etfsOnly,
+    },
   ]
 }

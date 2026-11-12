@@ -7,6 +7,8 @@ export interface Option {
   value: string
   label: string
   count?: number
+  // A choice that is shown but cannot be picked.
+  disabled?: boolean
 }
 
 export interface SuggestionOption {

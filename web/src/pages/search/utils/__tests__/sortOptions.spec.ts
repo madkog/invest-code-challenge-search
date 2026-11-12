@@ -22,6 +22,22 @@ describe('sort options', () => {
     expect(sortToId({ field: 'name', direction: 'desc' })).toBe('best')
   })
 
+  it('offers shares on issue normally', () => {
+    const units = buildSortOptions(false).find((option) => option.value === 'units-desc')!
+
+    expect(units.label).toBe('Most shares on issue')
+    expect(units.disabled).toBe(false)
+  })
+
+  it('disables shares on issue, and says why, when only ETFs are shown', () => {
+    const options = buildSortOptions(false, true)
+    const units = options.find((option) => option.value === 'units-desc')!
+
+    expect(units.label).toBe('Most shares on issue (shares only)')
+    expect(units.disabled).toBe(true)
+    expect(options.filter((option) => option.disabled)).toHaveLength(1)
+  })
+
   it('offers the same five sorts, and names the first one by whether there is a search', () => {
     expect(buildSortOptions(true).map((option) => option.value)).toEqual([
       'best',

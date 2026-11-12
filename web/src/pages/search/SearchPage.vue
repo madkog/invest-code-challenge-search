@@ -58,7 +58,9 @@ const hasError = computed(() => status.value === SEARCH_STATUS.ERROR)
 const showSkeleton = useDelayedFlag(() => isLoading.value, LOADING_DELAY_MS)
 
 const terms = computed(() => searchTerms(query.value))
-const sortOptions = computed(() => buildSortOptions(Boolean(query.value)))
+// Only shares have shares on issue, so with ETFs only that sort has nothing to sort by.
+const etfsOnly = computed(() => filters.value.kind.length === 1 && filters.value.kind[0] === 'etf')
+const sortOptions = computed(() => buildSortOptions(Boolean(query.value), etfsOnly.value))
 const sortId = computed(() => sortToId(sortBy.value))
 
 const chips = computed<FilterChip[]>(() => [
@@ -88,12 +90,20 @@ function updateSearch(change: () => void) {
   refreshFacets()
 }
 
+// Choosing ETFs only while sorted by shares on issue goes back to the default order, because ETFs
+// have none.
+function setKindFilter(kinds: Kind[]) {
+  const onlyEtfs = kinds.length === 1 && kinds[0] === 'etf'
+  if (onlyEtfs && sortId.value === 'units-desc') store.setSort(null)
+  store.setFilter('kind', kinds)
+}
+
 function runSearch(text: string, kind?: Kind) {
   draft.value = text
   addRecentSearch(text)
   store.clearSuggestions()
   updateSearch(() => {
-    if (kind) store.setFilter('kind', [kind])
+    if (kind) setKindFilter([kind])
     store.setQuery(text)
   })
 }
@@ -116,7 +126,7 @@ function onDrawerVisible(visible: boolean) {
 }
 
 function onKind(kinds: Kind[]) {
-  updateSearch(() => store.setFilter('kind', kinds))
+  updateSearch(() => setKindFilter(kinds))
 }
 
 function onIssuer(issuers: string[]) {
