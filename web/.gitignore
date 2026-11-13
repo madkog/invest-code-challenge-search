@@ -34,6 +34,10 @@ coverage
 /blob-report/
 /playwright/.cache/
 
+# Storybook
+/storybook-static/
+*storybook.log
+
 # Cypress
 /cypress/videos/
 /cypress/screenshots/

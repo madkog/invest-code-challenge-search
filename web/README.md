@@ -28,6 +28,7 @@ To run the end-to-end tests, install the browser once with `npx playwright insta
 | `npm run build`      | Type-check and production build               |
 | `npm run test:unit`  | Unit and component tests (Vitest)             |
 | `npm run test:e2e`   | End-to-end tests against the API (Playwright) |
+| `npm run storybook`  | Component workshop on http://localhost:6006   |
 | `npm run type-check` | Type-check only                               |
 | `npm run lint`       | Lint (oxlint and ESLint)                      |
 | `npm run format`     | Format `src/` (Prettier)                      |
@@ -80,8 +81,10 @@ src/
     utils/        # formatting and sort options
     config.ts     # popular searches, issuer names, fund features, loading delay
   theme/        # PrimeVue preset, global styles and contrast tests
+  stories/      # sample data for Storybook
   types/        # shared types
 e2e/            # Playwright end-to-end tests
+.storybook/     # Storybook setup (PrimeVue theme, fonts, light and dark switch)
 ```
 
 ### Search flow
@@ -103,7 +106,8 @@ The app is built layer by layer, from the data upward, and each layer ships with
 4. **Generic components.** Reusable building blocks (search input with suggestions, results list, skeleton, empty and error states, pagination, filters). They use props and events only, with no store access. _Tests:_ component tests for props, events and states.
 5. **Component implementations.** The search-specific components (search box, result row, filter panel, details drawer) are built on the generic ones and fed by the page. _Tests:_ component tests for rendering and interactions.
 6. **Theming.** The PrimeVue preset and brand colours are applied after the logic is done, so styling never leaks into it. _Checks:_ visual review and contrast tests.
-7. **Playwright.** End-to-end flows against the mock API: search, suggestions, filter, sort, paginate, no results, API errors and the mobile back button. _Tests:_ the e2e suite.
+7. **Storybook.** Stories for every component in its key states (empty, suggestions open, loading, no results, error, on a phone), with a light and dark switch and accessibility checks. _Checks:_ stories double as visual references.
+8. **Playwright.** End-to-end flows against the mock API: search, suggestions, filter, sort, paginate, no results, API errors and the mobile back button. _Tests:_ the e2e suite.
 
 ### Comments during build
 
@@ -115,7 +119,8 @@ Notes I made while building each layer.
 4. **Generic components.** Built from a design worked out using the Claude design skill. They take props and emit events, and none touch the store. One difference from the mockup: the pagination bar stays visible when the page size is larger than the total, so the size can be changed back.
 5. **Component implementations.** The search-specific pieces live with the page in `pages/search/`, and only generic code stays shared. Results change only when a search is submitted. Clicking a result, or picking an ETF or share in the search box, opens a details drawer with the fields the API returns. Checked against the running mock API as well as with unit tests.
 6. **Theming.** I measured the key colour pairs in both themes against WCAG AA, and they are now tests (`theme/__tests__/contrast.spec.ts`). They caught grey counts on tinted backgrounds, and muted text on the warmer page background, which both now use a darker grey. The page is light by default to match the Betashares site, with a toggle for dark that is remembered.
-7. **Playwright.** The tests found a real accessibility bug: the sort dropdown was named by its value instead of "Sort by". They also showed that "Betashares first" happens to list funds alphabetically, so the tests wait for each API response instead of trusting what is on screen.
+7. **Storybook.** One story file beside each component, using sample data from `src/stories/fixtures.ts`, so no API is needed. Stories that need the dropdown open use a play function to click or type. The accessibility panel checks each story. The page itself has no story, because it is the one part that uses the store and the API, and the Playwright tests cover it.
+8. **Playwright.** The tests found a real accessibility bug: the sort dropdown was named by its value instead of "Sort by". They also showed that "Betashares first" happens to list funds alphabetically, so the tests wait for each API response instead of trusting what is on screen.
 
 After the main build I hardened error handling (friendly messages, logging, timeouts, retry for search and details), fixed the layout on phones, and removed code that was no longer used.
 
@@ -124,6 +129,5 @@ After the main build I hardened error handling (friendly messages, logging, time
 - No Vue Router, so searches aren't shareable by URL yet (`?q=...&kind=etf`), and there is no full page for each ETF or share.
 - Popular searches are a curated list. Real search analytics would make them truly dynamic.
 - Errors are logged to the console. `utils/logError.ts` is the one place to send them to an error tracker such as Sentry.
-- Storybook stories for each component state would help a design system team.
 - The Vite proxy only works in dev. A deployment needs the same `/api` route on the web server.
 - Request timeouts use `AbortSignal.any`, which needs a 2024 or newer browser.

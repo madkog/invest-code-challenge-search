@@ -20,6 +20,8 @@ Tests, from `web/`:
 - Unit tests: `npm run test:unit`
 - End-to-end tests: `npm run test:e2e`. The first time, run `npx playwright install chromium` to download the browser they use.
 
+Component stories, from `web/`: `npm run storybook`, then open http://localhost:6006.
+
 ---
 
 This is a coding challenge to test your flair for building a search and filters page using a mock API as the backend.
