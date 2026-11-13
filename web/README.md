@@ -33,6 +33,8 @@ To run the end-to-end tests, install the browser once with `npx playwright insta
 | `npm run lint`       | Lint (oxlint and ESLint)                      |
 | `npm run format`     | Format `src/` (Prettier)                      |
 
+A pre-commit hook (husky and lint-staged) lints and formats the staged files, so a commit with lint errors is stopped. `npm install` sets it up.
+
 ## What it does
 
 - **Predictive suggestions.** With the box empty: recent searches, popular searches and flagship funds. While typing: search for the text in everything or only ETFs or shares (with counts), the matching ETFs and shares, and popular terms that contain the text.

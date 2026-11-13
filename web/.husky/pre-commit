@@ -1,0 +1,3 @@
+# Lints and formats the staged files in web/ before each commit.
+cd web
+npx lint-staged

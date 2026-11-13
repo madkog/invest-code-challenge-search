@@ -3,19 +3,23 @@ import { setActivePinia, createPinia } from 'pinia'
 
 import { HttpError } from '../../utils/httpClient'
 import { logError } from '../../utils/logError'
+import type { useSearchApi } from '../../composables/useSearchApi'
+import type { Instrument, SearchResponse, Suggestion } from '../../types/search'
 import { useSearchStore } from '../search'
 
+type Api = ReturnType<typeof useSearchApi>
+
 const api = vi.hoisted(() => ({
-  search: vi.fn(),
-  getSuggestions: vi.fn(),
-  getFlagshipFunds: vi.fn(),
-  getFacetCounts: vi.fn(),
-  getFlagCount: vi.fn(),
-  getInstrument: vi.fn(),
+  search: vi.fn<Api['search']>(),
+  getSuggestions: vi.fn<Api['getSuggestions']>(),
+  getFlagshipFunds: vi.fn<Api['getFlagshipFunds']>(),
+  getFacetCounts: vi.fn<Api['getFacetCounts']>(),
+  getFlagCount: vi.fn<Api['getFlagCount']>(),
+  getInstrument: vi.fn<Api['getInstrument']>(),
 }))
 
 vi.mock('../../composables/useSearchApi', () => ({ useSearchApi: () => api }))
-vi.mock('../../utils/logError', () => ({ logError: vi.fn() }))
+vi.mock('../../utils/logError', () => ({ logError: vi.fn<typeof logError>() }))
 
 const noFilters = {
   kind: [],
@@ -26,10 +30,41 @@ const noFilters = {
 }
 const SYMBOL_ASC = { field: 'symbol', direction: 'asc' } as const
 
-const A200 = { symbol: 'A200', name: 'Betashares Australia 200 ETF' }
+const A200: Instrument = {
+  id: 'A200:AU',
+  symbol: 'A200',
+  name: 'Betashares Australia 200 ETF',
+  kind: 'etf',
+  currency: 'AUD',
+  logoUrl: null,
+  issuer: 'betashares',
+  isBetashares: true,
+  isFlagshipFund: true,
+  isPortfolioExcluded: false,
+  isAutoInvestIncluded: true,
+  unitsCirculating: null,
+}
+const VAS: Instrument = {
+  ...A200,
+  id: 'VAS:AU',
+  symbol: 'VAS',
+  name: 'Vanguard Australian Shares Index ETF',
+  issuer: 'vanguard',
+  isBetashares: false,
+  isFlagshipFund: false,
+}
+const VAF: Instrument = { ...VAS, id: 'VAF:AU', symbol: 'VAF', name: 'Vanguard Fixed Interest ETF' }
 
-function searchResponse(results: object[] = [A200], count = results.length) {
+function searchResponse(results: Instrument[] = [A200], count = results.length) {
   return { results, count }
+}
+
+function suggestionOf({ id, symbol, name, kind, issuer }: Instrument): Suggestion {
+  return { id, symbol, name, kind, issuer }
+}
+
+function suggestionResponse(...items: Instrument[]): SearchResponse<Suggestion> {
+  return { results: items.map(suggestionOf), count: items.length }
 }
 
 // A promise the test resolves or rejects by hand, to control the order responses arrive in.
@@ -59,10 +94,10 @@ describe('search store', () => {
   beforeEach(() => {
     vi.resetAllMocks()
     api.search.mockResolvedValue(searchResponse())
-    api.getSuggestions.mockResolvedValue({ results: [A200] })
+    api.getSuggestions.mockResolvedValue(suggestionResponse(A200))
     api.getFacetCounts.mockResolvedValue([])
     api.getFlagCount.mockResolvedValue(0)
-    api.getFlagshipFunds.mockResolvedValue({ results: [A200], count: 1 })
+    api.getFlagshipFunds.mockResolvedValue(suggestionResponse(A200))
     setActivePinia(createPinia())
     store = useSearchStore()
   })
@@ -115,7 +150,7 @@ describe('search store', () => {
     })
 
     it('is loading while the request is pending', async () => {
-      const pending = deferred()
+      const pending = deferred<SearchResponse<Instrument>>()
       api.search.mockReturnValue(pending.promise)
 
       const done = store.search()
@@ -256,25 +291,25 @@ describe('search store', () => {
     })
 
     it('ignores an older response that arrives after a newer one', async () => {
-      const first = deferred()
-      const second = deferred()
+      const first = deferred<SearchResponse<Instrument>>()
+      const second = deferred<SearchResponse<Instrument>>()
       api.search.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise)
 
       // The first request is slow, so its response arrives after the second one's.
       const firstDone = store.setQuery('va')
       const secondDone = store.setQuery('vas')
-      second.resolve(searchResponse([{ symbol: 'VAS', name: 'Vanguard Australian Shares' }]))
+      second.resolve(searchResponse([VAS]))
       await secondDone
-      first.resolve(searchResponse([{ symbol: 'VAF', name: 'Vanguard Australian Fixed' }]))
+      first.resolve(searchResponse([VAF]))
       await firstDone
 
-      expect(store.results).toEqual([{ symbol: 'VAS', name: 'Vanguard Australian Shares' }])
+      expect(store.results).toEqual([VAS])
       expect(store.status).toBe('success')
     })
 
     it('treats an abort as neither an error nor a result', async () => {
-      const first = deferred()
-      const second = deferred()
+      const first = deferred<SearchResponse<Instrument>>()
+      const second = deferred<SearchResponse<Instrument>>()
       api.search.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise)
 
       const firstDone = store.search()
@@ -296,7 +331,7 @@ describe('search store', () => {
       await store.loadSuggestions('a200')
 
       expect(api.getSuggestions).toHaveBeenCalledWith('a200', { signal: expect.any(AbortSignal) })
-      expect(store.suggestions).toEqual([A200])
+      expect(store.suggestions).toEqual([suggestionOf(A200)])
     })
 
     it('also loads the ETF and share counts for the text', async () => {
@@ -350,27 +385,27 @@ describe('search store', () => {
     })
 
     it('ignores an older response that arrives after a newer one', async () => {
-      const first = deferred()
-      const second = deferred()
+      const first = deferred<SearchResponse<Suggestion>>()
+      const second = deferred<SearchResponse<Suggestion>>()
       api.getSuggestions.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise)
 
       const firstDone = store.loadSuggestions('va')
       const secondDone = store.loadSuggestions('vas')
-      second.resolve({ results: [{ symbol: 'VAS', name: 'Vanguard Australian Shares' }] })
+      second.resolve(suggestionResponse(VAS))
       await secondDone
-      first.resolve({ results: [{ symbol: 'VAF', name: 'Vanguard Australian Fixed' }] })
+      first.resolve(suggestionResponse(VAF))
       await firstDone
 
-      expect(store.suggestions).toEqual([{ symbol: 'VAS', name: 'Vanguard Australian Shares' }])
+      expect(store.suggestions).toEqual([suggestionOf(VAS)])
     })
 
     it('clearSuggestions empties the list and cancels a pending request', async () => {
-      const pending = deferred()
+      const pending = deferred<SearchResponse<Suggestion>>()
       api.getSuggestions.mockReturnValue(pending.promise)
 
       const done = store.loadSuggestions('vas')
       store.clearSuggestions()
-      pending.resolve({ results: [A200] })
+      pending.resolve(suggestionResponse(A200))
       await done
 
       expect(store.suggestions).toEqual([])
@@ -381,7 +416,7 @@ describe('search store', () => {
     it('loads the flagship funds', async () => {
       await store.loadFlagshipFunds()
 
-      expect(store.flagshipFunds).toEqual([A200])
+      expect(store.flagshipFunds).toEqual([suggestionOf(A200)])
     })
 
     it('shows none when the request fails, without failing the search', async () => {
@@ -528,7 +563,7 @@ describe('search store', () => {
     })
 
     it('is loading, with no instrument, while the request is pending', async () => {
-      const pending = deferred()
+      const pending = deferred<Instrument>()
       api.getInstrument.mockReturnValue(pending.promise)
 
       const done = store.loadInstrument('A200:AU')
@@ -588,23 +623,23 @@ describe('search store', () => {
     })
 
     it('ignores an older response that arrives after a newer one', async () => {
-      const first = deferred()
-      const second = deferred()
+      const first = deferred<Instrument>()
+      const second = deferred<Instrument>()
       api.getInstrument.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise)
 
       const firstDone = store.loadInstrument('A200:AU')
       const secondDone = store.loadInstrument('VAS:AU')
-      second.resolve({ symbol: 'VAS' })
+      second.resolve(VAS)
       await secondDone
-      first.resolve({ symbol: 'A200' })
+      first.resolve(A200)
       await firstDone
 
-      expect(store.instrument).toEqual({ symbol: 'VAS' })
+      expect(store.instrument).toEqual(VAS)
       expect(signalOf(api.getInstrument, 0).aborted).toBe(true)
     })
 
     it('clearInstrument forgets the instrument and cancels a pending request', async () => {
-      const pending = deferred()
+      const pending = deferred<Instrument>()
       api.getInstrument.mockReturnValue(pending.promise)
 
       const done = store.loadInstrument('A200:AU')

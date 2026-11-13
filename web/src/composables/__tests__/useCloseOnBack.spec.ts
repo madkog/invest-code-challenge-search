@@ -21,7 +21,7 @@ describe('useCloseOnBack', () => {
 
   function setUp() {
     const isOpen = ref(false)
-    const close = vi.fn(() => {
+    const close = vi.fn<() => void>(() => {
       isOpen.value = false
     })
     scope.run(() => useCloseOnBack(isOpen, close))

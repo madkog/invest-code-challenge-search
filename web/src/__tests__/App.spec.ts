@@ -3,15 +3,18 @@ import { describe, it, expect, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { createPinia } from 'pinia'
 import App from '../App.vue'
+import type { useSearchApi } from '../composables/useSearchApi'
 import { withPrimeVue } from './primeVue'
+
+type Api = ReturnType<typeof useSearchApi>
 
 vi.mock('../composables/useSearchApi', () => ({
   useSearchApi: () => ({
-    search: vi.fn().mockResolvedValue({ results: [], count: 0 }),
-    getSuggestions: vi.fn().mockResolvedValue({ results: [] }),
-    getFacetCounts: vi.fn().mockResolvedValue([]),
-    getFlagCount: vi.fn().mockResolvedValue(0),
-    getFlagshipFunds: vi.fn().mockResolvedValue({ results: [], count: 0 }),
+    search: vi.fn<Api['search']>().mockResolvedValue({ results: [], count: 0 }),
+    getSuggestions: vi.fn<Api['getSuggestions']>().mockResolvedValue({ results: [], count: 0 }),
+    getFacetCounts: vi.fn<Api['getFacetCounts']>().mockResolvedValue([]),
+    getFlagCount: vi.fn<Api['getFlagCount']>().mockResolvedValue(0),
+    getFlagshipFunds: vi.fn<Api['getFlagshipFunds']>().mockResolvedValue({ results: [], count: 0 }),
   }),
 }))
 

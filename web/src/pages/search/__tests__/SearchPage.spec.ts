@@ -19,15 +19,18 @@ import ResultsToolbar from '../components/ResultsToolbar.vue'
 import ThemeToggle from '../../../components/ThemeToggle.vue'
 import SearchBox from '../components/SearchBox/SearchBox.vue'
 import SearchPage from '../SearchPage.vue'
+import type { useSearchApi } from '../../../composables/useSearchApi'
+
+type Api = ReturnType<typeof useSearchApi>
 
 vi.mock('../../../composables/useSearchApi', () => ({
   useSearchApi: () => ({
-    search: vi.fn(),
-    getSuggestions: vi.fn(),
-    getFlagshipFunds: vi.fn(),
-    getFacetCounts: vi.fn(),
-    getFlagCount: vi.fn(),
-    getInstrument: vi.fn(),
+    search: vi.fn<Api['search']>(),
+    getSuggestions: vi.fn<Api['getSuggestions']>(),
+    getFlagshipFunds: vi.fn<Api['getFlagshipFunds']>(),
+    getFacetCounts: vi.fn<Api['getFacetCounts']>(),
+    getFlagCount: vi.fn<Api['getFlagCount']>(),
+    getInstrument: vi.fn<Api['getInstrument']>(),
   }),
 }))
 
