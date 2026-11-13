@@ -4,7 +4,7 @@ A search page for ASX-listed ETFs and shares, built with Vue 3, TypeScript, Vite
 
 ## Getting started
 
-Requires Node 24 (22.22+ also works).
+Requires Node 24 (22.22+ also works). `.nvmrc` pins 24, and `.npmrc` sets `engine-strict`, so `npm install` fails on an unsupported Node instead of only warning.
 
 ```sh
 # terminal 1, from the repo root
@@ -12,6 +12,7 @@ npm run api:install
 npm run api            # mock API on http://localhost:8787
 
 # terminal 2, from web/
+nvm use                # picks up Node 24 from .nvmrc
 npm install
 npm run dev            # app on http://localhost:3000
 ```

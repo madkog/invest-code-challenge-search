@@ -58,7 +58,7 @@
     "vue-tsc": "^3.3.11"
   },
   "engines": {
-    "node": "^22.18.0 || >=24.12.0"
+    "node": "^22.22.2 || >=24.15.0"
   },
   "lint-staged": {
     "*.{ts,vue}": [
@@ -67,5 +67,9 @@
       "prettier --write"
     ],
     "*.{css,json,md,html}": "prettier --write"
+  },
+  "allowScripts": {
+    "esbuild": false,
+    "fsevents": false
   }
 }
