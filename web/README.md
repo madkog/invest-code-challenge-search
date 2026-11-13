@@ -1,6 +1,6 @@
 # Fund Search
 
-A search page for ASX-listed ETFs and shares, built with Vue 3, Vite, PrimeVue and Pinia. It runs against the local mock Search API in `../api`.
+A search page for ASX-listed ETFs and shares, built with Vue 3, TypeScript, Vite, PrimeVue and Pinia, using the Fetch API. It runs against the local mock Search API in `../api`.
 
 ## Getting started
 
@@ -22,16 +22,17 @@ To run the end-to-end tests, install the browser once with `npx playwright insta
 
 ## Scripts
 
-| Command              | What it does                                  |
-| -------------------- | --------------------------------------------- |
-| `npm run dev`        | Dev server with hot reload                    |
-| `npm run build`      | Type-check and production build               |
-| `npm run test:unit`  | Unit and component tests (Vitest)             |
-| `npm run test:e2e`   | End-to-end tests against the API (Playwright) |
-| `npm run storybook`  | Component workshop on http://localhost:6006   |
-| `npm run type-check` | Type-check only                               |
-| `npm run lint`       | Lint (oxlint and ESLint)                      |
-| `npm run format`     | Format `src/` (Prettier)                      |
+| Command                   | What it does                                  |
+| ------------------------- | --------------------------------------------- |
+| `npm run dev`             | Dev server with hot reload                    |
+| `npm run build`           | Type-check and production build               |
+| `npm run test:unit`       | Unit and component tests (Vitest)             |
+| `npm run test:e2e`        | End-to-end tests against the API (Playwright) |
+| `npm run storybook`       | Component workshop on http://localhost:6006   |
+| `npm run build-storybook` | Static build of the component workshop        |
+| `npm run type-check`      | Type-check only                               |
+| `npm run lint`            | Lint (oxlint and ESLint)                      |
+| `npm run format`          | Format `src/` (Prettier)                      |
 
 A pre-commit hook (husky and lint-staged) lints and formats the staged files, so a commit with lint errors is stopped. `npm install` sets it up.
 
@@ -46,26 +47,38 @@ A pre-commit hook (husky and lint-staged) lints and formats the staged files, so
 - **Accessibility.** Labelled controls, keyboard-operable suggestions, visible focus rings, and WCAG AA contrast checked by tests in both themes.
 - **Theme and mobile.** A warm light theme by default with a dark theme toggle. On phones: a scrolling row of popular searches, an icon search button, and the back button closes the details drawer.
 
+### Performance
+
+- Suggestions wait 150ms after the last key, and ask only for the fields a suggestion shows.
+- Requests that are needed together (suggestions and their counts, the filter counts) are sent at the same time.
+- A newer request cancels an older one of the same kind, so typing fast never shows stale results.
+- Filter counts leave out empty values (`omit_empty_counts`), so responses stay small.
+- The results only change on submit, not on every key, so the main search runs once per search.
+
+### Testing
+
+| What                     | How                                                                           |
+| ------------------------ | ----------------------------------------------------------------------------- |
+| Unit and component tests | 363 Vitest tests, beside the code in `__tests__` folders                      |
+| End-to-end tests         | 8 Playwright tests in `e2e/`, against the real app and API, desktop and phone |
+| Colour contrast          | Tests for WCAG AA in both themes (`theme/__tests__/contrast.spec.ts`)         |
+| Component states         | 62 Storybook stories, each checked by the accessibility addon                 |
+| Lint, format and types   | oxlint, ESLint, Prettier and vue-tsc, with lint and format on every commit    |
+
 ## Project Breakdown
 
-### Goal
+### Design decisions
 
-Replace a basic search box with a modern search experience: predictive suggestions, filters, sorting, pagination, and clear loading and empty states, backed by the mock Search API.
-
-### Design process
-
-1. **Brief to acceptance criteria.** I turned the brief into a checklist (suggestions, search bar, results, filters and ordering, loading states) and designed against it.
-2. **Interactive mockup first.** Before writing app code I built a clickable mockup with the real component library. That let me test the flow, keyboard use and states (loading, no results, API error) cheaply. It is in `../docs/search-design/`.
-3. **Fit the design to the real API.** Once I had the API spec I reworked the design around what the data actually offers. There are no fees or returns, so result rows show ticker, name, type, issuer and badges. The API has no popularity data, so "popular searches" come from a config list, recent searches and flagship funds.
-4. **Pick the library on facts.** PrimeVue 4.5 is MIT licensed, while v5 needs a paid licence, so I pinned 4.5. I used the styled Aura theme rather than Volt (Tailwind) because it needs no extra setup.
-5. **Light brand theming.** Brand orange (`#FC4D16`) is used sparingly for focus rings and highlights, on the warm grey background and stone greys of the Betashares site. Buttons use a deeper orange because white on the bright orange fails WCAG AA contrast.
-6. **Standalone page.** The brief asks for a search page, not a rebuild of the Betashares site, so this is a standalone page that borrows the brand look.
+1. **Mockup first, then fit it to the API.** I built a clickable mockup with the real component library to test the flow, keyboard use and states cheaply, then reworked it around what the API actually offers. There are no fees or returns, so rows show ticker, name, type, issuer and badges. There is no popularity data, so popular searches come from a config list, recent searches and flagship funds.
+2. **PrimeVue 4.5, pinned.** It is MIT licensed, while v5 needs a paid licence. The styled Aura theme needs no extra setup.
+3. **Light brand theming.** Brand orange (`#FC4D16`) for focus and highlights, on the warm greys of the Betashares site. Buttons use a deeper orange, because white on the bright orange fails WCAG AA.
+4. **A standalone page.** The brief asks for a search page, not a rebuild of the site.
 
 ### Principles
 
-1. **Modular, as if part of a larger project.** Each piece has one job: the API layer, the store, the composables and the UI components are separate, and components don't know about each other. A parent page could mount the search anywhere.
-2. **Transportable to another project.** Everything that talks to the API sits in one place, so a different endpoint or data shape changes one file. The theme lives in one preset file and a few CSS variables. Components take props and emit events instead of reaching into global state, so they can be copied into another app.
-3. **Simple to read.** Standard Vue single-file components, no JSX, no Router (it's a single page). Pinia holds the shared search state and nothing else. Prefer small, named functions over clever code.
+1. **Modular.** Each piece has one job, and components don't know about each other.
+2. **Transportable.** Only the API composable knows the API, so a different endpoint changes one file. Components use props and events, never the store, so they can be copied into another app. The theme lives in one preset file and a few CSS variables.
+3. **Simple to read.** Standard Vue single-file components, small named functions, no clever code.
 
 ### Structure
 
@@ -93,38 +106,25 @@ e2e/            # Playwright end-to-end tests
 
 1. **Typing** asks for suggestions 150ms after the last key. The store sends two requests together: a light `/search` with only the fields a suggestion needs, and `/facets/kind` for the ETF and share counts.
 2. **Submitting or picking a suggestion** sets the query. The store sends `/search`, and the page reloads the filter counts (`/facets/kind`, `/facets/issuer` and the yes/no filters) for the new text.
-3. **Changing a filter, sort or page** updates the store, which searches again. A newer request cancels an older one of the same kind, so a slow response never overwrites a newer one.
+3. **Changing a filter** searches again and reloads the filter counts. **Changing the sort or page** only searches again. A newer request cancels an older one of the same kind, so a slow response never overwrites a newer one.
 4. **Picking a result** loads it from `/instruments/:id` into the details drawer.
 
 Failures: the main search shows a friendly error with retry. Optional parts (suggestions, filter counts) quietly hide. Every failure is logged to the console with what failed, and requests time out after 10 seconds.
 
-### Build order
+### How it was built
 
-The app is built layer by layer, from the data upward, and each layer ships with its own tests before the next one starts.
+Layer by layer, from the data upward, each with its own tests before the next.
 
-1. **API composable.** Wraps the mock Search API (`/search`, `/facets`, `/instruments`). It's the only code that knows about endpoints and request shapes. _Tests:_ unit tests with mocked `fetch`.
-2. **Pinia store.** Holds the shared search state (query, filters, sort, page, results, status) and calls the composable. _Tests:_ unit tests for actions and state changes.
-3. **Search page.** Wires the store to the layout. It's the only place that knows about both the store and the components. _Tests:_ component tests with the store's actions spied on.
-4. **Generic components.** Reusable building blocks (search input with suggestions, results list, skeleton, empty and error states, pagination, filters). They use props and events only, with no store access. _Tests:_ component tests for props, events and states.
-5. **Component implementations.** The search-specific components (search box, result row, filter panel, details drawer) are built on the generic ones and fed by the page. _Tests:_ component tests for rendering and interactions.
-6. **Theming.** The PrimeVue preset and brand colours are applied after the logic is done, so styling never leaks into it. _Checks:_ visual review and contrast tests.
-7. **Storybook.** Stories for every component in its key states (empty, suggestions open, loading, no results, error, on a phone), with a light and dark switch and accessibility checks. _Checks:_ stories double as visual references.
-8. **Playwright.** End-to-end flows against the mock API: search, suggestions, filter, sort, paginate, no results, API errors and the mobile back button. _Tests:_ the e2e suite.
+1. **API composable** (unit tests with mocked `fetch`). It takes the app's own params and types and builds the API's request body itself, so no API name such as `search_text` or `display_name` exists outside it.
+2. **Pinia store** (unit tests). I started with watchers and `onWatcherCleanup`, then chose explicit actions, because each one visibly sends its request and is easier to trace and test. A small request tracker cancels stale requests, rather than a library such as Vue Query.
+3. **Search page** (component tests). The only place that knows both the store and the components.
+4. **Generic components** (component tests). Props and events only, from a design worked out with the Claude design skill.
+5. **Search components** (component tests). Built on the generic ones and kept beside the page in `pages/search/`.
+6. **Theming** (contrast tests). Measuring colour pairs against WCAG AA caught grey counts on tinted backgrounds and muted text on the warm background. Both now use a darker grey.
+7. **Storybook.** One story file beside each component, with sample data so no API is needed. The page has no story, because Playwright covers it.
+8. **Playwright.** The tests found a real accessibility bug (the sort dropdown was named by its value, not "Sort by"), and showed that the default order happens to be alphabetical, so they wait for each API response instead of trusting the screen.
 
-### Comments during build
-
-Notes I made while building each layer.
-
-1. **API composable.** Used the base search call with a filter for suggestions. Thought about caching but left it for the moment as the data is in memory. The composable takes the app's own params (`text`, `filters`, `sort`, `page`, `size`) and builds the API request body itself, so the store never sees `search_text` or `{ value }` booleans. It also maps responses to the app's own types (`Instrument`, `Sort`, camelCase names), so no API field name such as `display_name` or `is_betashares` exists outside it. That includes the yes/no filters, where the API sends counts for the text "true" and "false" and the composable returns just the count with the filter on.
-2. **Pinia store.** Started with watchers and `onWatcherCleanup` (Vue's built-in cancellation), then chose explicit actions. They are easier to trace and test, because each one visibly sends its request and returns a promise. Cancelling stale requests is handled by a small request tracker (`utils/requestTracker.ts`) rather than a library such as Vue Query. I kept it as a Pinia store rather than a composable so the search state survives leaving the page, for example when a details page returns to the same results.
-3. **Search page.** Started as a layout skeleton wired to the store, with PrimeVue's default theme so it could be seen working. Converted everything to TypeScript so the page, store and API share types.
-4. **Generic components.** Built from a design worked out using the Claude design skill. They take props and emit events, and none touch the store. One difference from the mockup: the pagination bar stays visible when the page size is larger than the total, so the size can be changed back.
-5. **Component implementations.** The search-specific pieces live with the page in `pages/search/`, and only generic code stays shared. Results change only when a search is submitted. Clicking a result, or picking an ETF or share in the search box, opens a details drawer with the fields the API returns. Checked against the running mock API as well as with unit tests.
-6. **Theming.** I measured the key colour pairs in both themes against WCAG AA, and they are now tests (`theme/__tests__/contrast.spec.ts`). They caught grey counts on tinted backgrounds, and muted text on the warmer page background, which both now use a darker grey. The page is light by default to match the Betashares site, with a toggle for dark that is remembered.
-7. **Storybook.** One story file beside each component, using sample data from `src/stories/fixtures.ts`, so no API is needed. Stories that need the dropdown open use a play function to click or type. The accessibility panel checks each story. The page itself has no story, because it is the one part that uses the store and the API, and the Playwright tests cover it.
-8. **Playwright.** The tests found a real accessibility bug: the sort dropdown was named by its value instead of "Sort by". They also showed that "Betashares first" happens to list funds alphabetically, so the tests wait for each API response instead of trusting what is on screen.
-
-After the main build I hardened error handling (friendly messages, logging, timeouts, retry for search and details), fixed the layout on phones, and removed code that was no longer used.
+After that I hardened error handling (friendly messages, logging, timeouts, retry), fixed the phone layout, and removed code that was no longer used.
 
 ### Trade-offs and next steps
 
@@ -133,3 +133,4 @@ After the main build I hardened error handling (friendly messages, logging, time
 - Errors are logged to the console. `utils/logError.ts` is the one place to send them to an error tracker such as Sentry.
 - The Vite proxy only works in dev. A deployment needs the same `/api` route on the web server.
 - Request timeouts use `AbortSignal.any`, which needs a 2024 or newer browser.
+- No CI yet. A GitHub Actions workflow running lint, type-check, unit and end-to-end tests on each push would be the next step.
