@@ -70,6 +70,7 @@ describe('InstrumentDrawer', () => {
     await mountDrawer()
 
     expect(document.body.querySelector('.p-drawer-title')?.textContent).toBe('A200')
+    expect(document.body.querySelector('[role="dialog"]')?.getAttribute('aria-label')).toBe('A200')
     expect(shown()).toContain('Betashares Australia 200 ETF')
     expect(shown()).toContain('A200:AU')
   })

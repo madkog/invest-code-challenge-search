@@ -19,6 +19,13 @@ describe('SortSelect', () => {
     expect(wrapper.find(`[id="${label.attributes('for')}"]`).exists()).toBe(true)
   })
 
+  it('names the select with its label for screen readers', () => {
+    const wrapper = mount(SortSelect, { props: { modelValue: '', options }, global: withPrimeVue })
+
+    const labelId = wrapper.get('label').attributes('id')
+    expect(wrapper.get('[role="combobox"]').attributes('aria-labelledby')).toBe(labelId)
+  })
+
   it('uses the label it is given', () => {
     const wrapper = mount(SortSelect, {
       props: { modelValue: '', options, label: 'Order' },

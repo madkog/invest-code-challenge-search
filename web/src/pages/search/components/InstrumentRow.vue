@@ -19,7 +19,9 @@ defineProps<{
   <div class="row">
     <AvatarBadge :label="instrument.symbol" :image-url="instrument.logoUrl" class="avatar" />
     <span class="top">
-      <span class="ticker"><HighlightedText :text="instrument.symbol" :terms="terms" /></span>
+      <span class="ticker" data-testid="ticker"
+        ><HighlightedText :text="instrument.symbol" :terms="terms"
+      /></span>
       <span class="name">
         <!-- The whole row is clickable through this button, so it is a single tab stop. -->
         <button
@@ -33,7 +35,7 @@ defineProps<{
       </span>
     </span>
     <span class="sub">
-      <Tag :value="kindLabel(instrument.kind)" severity="secondary" />
+      <Tag :value="kindLabel(instrument.kind)" severity="secondary" data-testid="kind" />
       <HighlightedText
         v-if="instrument.issuer"
         :text="issuerName(instrument.issuer)"

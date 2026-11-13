@@ -30,7 +30,13 @@ defineExpose({ focus })
 
 <template>
   <div class="toolbar">
-    <div ref="summary" class="summary" aria-live="polite" tabindex="-1">
+    <div
+      ref="summary"
+      class="summary"
+      data-testid="results-summary"
+      aria-live="polite"
+      tabindex="-1"
+    >
       <template v-if="loading">Searching…</template>
       <template v-else-if="failed">Search didn’t finish</template>
       <template v-else-if="query">

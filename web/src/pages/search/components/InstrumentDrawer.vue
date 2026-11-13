@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import Button from 'primevue/button'
 import Drawer from 'primevue/drawer'
 import Skeleton from 'primevue/skeleton'
@@ -7,7 +8,7 @@ import AvatarBadge from '../../../components/AvatarBadge.vue'
 import type { Instrument } from '../../../types/search'
 import { formatUnits, issuerName, kindLabel } from '../utils/format'
 
-defineProps<{
+const props = defineProps<{
   visible: boolean
   // The instrument to show. Null until it has loaded.
   instrument: Instrument | null
@@ -15,6 +16,9 @@ defineProps<{
 }>()
 
 defineEmits<{ 'update:visible': [visible: boolean]; retry: [] }>()
+
+// Shown as the heading, and names the drawer for screen readers, which PrimeVue does not do.
+const title = computed(() => props.instrument?.symbol ?? 'Details')
 
 function yesNo(value: boolean): string {
   return value ? 'Yes' : 'No'
@@ -25,7 +29,8 @@ function yesNo(value: boolean): string {
   <Drawer
     :visible="visible"
     position="right"
-    :header="instrument?.symbol ?? 'Details'"
+    :header="title"
+    :aria-label="title"
     style="width: min(420px, 100vw)"
     @update:visible="$emit('update:visible', $event)"
   >
